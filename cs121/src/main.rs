@@ -1,14 +1,14 @@
 extern crate ws;
+extern crate chrono;
 
 use ws::listen;
-use std::time::{Duration, Instant};
+use chrono::Utc;
 
 fn main() {
-    let start = Instant::now();
     listen("127.0.0.1:3012", |out| {
         move |msg| {
-            let duration = start.elapsed();
-            println!("{:?}: {}", duration, msg);
+            let local_time = Utc::now();
+            println!("{:?}: {}", local_time, msg);
             Ok(())
       }
     }).unwrap()

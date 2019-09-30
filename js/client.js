@@ -1,11 +1,22 @@
-// Constants
+//TODO: Consider using JS modules for imports
 
+//TODO: Consider splitting game logic into separate code from base
+// client?
+
+// *******  Constants   ******
 const bgColor= "black";
 const strokeStyle = "white";
 
-const pieceZ = [ 1, 1, 0, 0, 1, 1, 0, 0, 0];
+//The matrices representing the game pieces
+const pieceZ = [ 1, 1, 0, 0, 1, 1, 0, 0, 0]; //0
+const pieceS = [ 0, 1, 1, 1, 1, 0, 0, 0, 0]; //1
+const pieceL = [ 1, 1, 0, 0, 1, 0, 0, 1, 0]; //2
+const pieceR = [ 0, 1, 1, 0, 1, 0, 0, 1, 0]; //3
+const pieceT = [ 0, 1, 0, 1, 1, 1, 0, 0, 0]; //4
+const pieceI = [ 1, 1, 0, 0, 1, 1, 0, 0, 0]; //5
+const pieceO = [ 1, 1, 0, 0, 1, 1, 0, 0, 0]; //6
 
-//Variables
+// ******   Variables   ********
 var boardWidth;
 var boardHeight;
 
@@ -23,33 +34,14 @@ var playerNum;
 var keystate = [];
 var socket;
 var socketOpen = false;
+
 // Actual Code
-function clearBoard() {
-    // Clear Screen
-    ctx.fillStyle = bgColor;
-    ctx.fillRect(0, 0, canvasWidth, canvasHeight);
-    //Draw Gridlines
-    ctx.stroke();
-}
 
-function drawPieces() {
-    for (piece in pieces) {
-        let [x, y, shape] = pieces[piece];
-        // Draw the blocks in the shape
-        for (i in shape) {
-            if (shape[i] == 1) {
-                let posX = canvasWidth * (x + i % 3) / boardWidth;
-                let posY = canvasHeight * (y + Math.floor(i / 3) )
-                                / boardWidth;
-                ctx.fillStyle = "red";
-                ctx.fillRect(posX, posY, blockWidth, blockHeight);
-            }
-        }
-    }
-}
-
+/**
+ *  Initializes the client state and all game logic variables
+ */
 function init() {
-
+    //TODO: Receive board specifications from server
     boardWidth = 20;
     boardHeight = 20;
     board = Array(boardWidth).fill(Array(boardHeight));
@@ -64,13 +56,16 @@ function init() {
     blockHeight = canvasHeight / boardHeight;
     blockWidth = canvasWidth / boardWidth;
 
-    pieces = [ [5, 5, pieceZ, 0, "Z"], [] ];
-
+    //Initialize network and rendering components
+    //TODO: delegate to relevant components
     initSocket();
     initGrid();
     clearBoard();
     drawPieces();
 
+    // Test code
+    //TODO: Change piece code to use numeric representation
+    pieces = [ [5, 5, 0, pieceL]];
     playerNum = 0;
 
     window.addEventListener('keydown', (e) => {
@@ -78,35 +73,27 @@ function init() {
         e.preventDefault();
     });
 
-    window.requestAnimationFrame(drawFrame)
+    window.requestAnimationFrame(handle_frame)
 }
 
-function initGrid() {
-    // Draw Vertical Gridlines
-    for(let i = 0; i <= boardWidth; ++i) {
-        let posX = i * blockWidth;
-        ctx.moveTo(posX, 0);
-        ctx.lineTo(posX, canvasHeight);
-    }
-    // Draw Horizontal Gridlines
-    for(let i = 0; i <= boardWidth; ++i) {
-        let posY = i * blockHeight;
-        ctx.moveTo(0, posY);
-        ctx.lineTo(canvasWidth, posY);
-    }
-}
-
-function drawFrame() {
+/**
+ *  Delegates the logic for each frame and makes calls to the network
+ *  and rendering logic to draw the frame and send data to the server
+ */
+function handle_frame() {
     updatePosition();
     if (socketOpen) {
         sendPieceInfo();
     }
     keystate = [];
-    clearBoard();
-    drawPieces();
-    window.requestAnimationFrame(drawFrame)
+    draw_frame();
+    window.requestAnimationFrame(handle_frame)
 }
 
+/**
+ *  Uses the input buffer for the current frame to adjust player
+ *  position and rotation.
+ */
 function updatePosition() {
     if (keystate["ArrowLeft"]) {
         pieces[playerNum][0] -= 1;
@@ -115,60 +102,12 @@ function updatePosition() {
         pieces[playerNum][0] += 1;
     }
     if (keystate["ArrowUp"]) {
-        pieces[playerNum][2] = rotateCW(pieces[playerNum][2]);
-        pieces[playerNum][3] = (pieces[playerNum][3] + 1) % 4;
+        pieces[playerNum][2] = (pieces[playerNum][2] + 1) % 4;
     }
     if (keystate["z"]) {
-        pieces[playerNum][2] = rotateCCW(pieces[playerNum][2]);
-        pieces[playerNum][3] = (pieces[playerNum][3] - 1) % 4;
-        if (pieces[playerNum][3] == -1) {
-            pieces[playerNum][3] = 3;
+        pieces[playerNum][2] = (pieces[playerNum][2] - 1);
+        if (pieces[playerNum][2] == -1) {
+            pieces[playerNum][2] = 3;
         }
     }
-}
-
-// Create new variables named in correct order, then return new array
-function rotateCW(shape) {
-    let [b7, b4, b1, b8, b5, b2, b9, b6, b3] = shape;
-    return [b1, b2, b3, b4, b5, b6, b7, b8, b9];
-}
-
-function rotateCCW(shape) {
-    let [b3, b6, b9, b2, b5, b8, b1, b4, b7] = shape;
-    return [b1, b2, b3, b4, b5, b6, b7, b8, b9];
-}
-
-// Experimental networking stuffs
-
-function sendPieceInfo() {
-    let [x, y, , rot, piece] = pieces[playerNum];
-    socket.send(`X: ${x} Y: ${y} Rotation: ${rot} Piece: ${piece}`);
-}
-
-function initSocket() {
-    socket = new WebSocket("ws://127.0.0.1:3012");
-
-    socket.onopen = function(e) {
-        socket.send("Started");
-        socketOpen = true;
-    };
-
-    socket.onmessage = function(event) {
-      alert(`[message] Data received from server: ${event.data}`);
-    };
-
-    socket.onclose = function(event) {
-        socketOpen = false;
-        if (event.wasClean) {
-            alert(`[close] Connection closed cleanly, code=${event.code} reason=${event.reason}`);
-        } else {
-            // e.g. server process killed or network down
-            // event.code is usually 1006 in this case
-            alert('[close] Connection died');
-            }
-        };
-
-    socket.onerror = function(error) {
-      alert(`[error] ${error.message}`);
-    };
 }
