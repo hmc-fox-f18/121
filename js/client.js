@@ -86,9 +86,6 @@ function init() {
  */
 function handleFrame() {
     updatePosition();
-    if (socketOpen) {
-        sendPieceInfo();
-    }
     keystate = [];
     draw_frame();
     window.requestAnimationFrame(handleFrame)
@@ -121,6 +118,11 @@ function updatePosition() {
     // Rotate counter-clockwise
     if (keystate["z"]) {
         wallkick(pieces[playerNum], false);
+    }
+
+    // send piece info on every position update
+    if (socketOpen) {
+        sendPieceInfo();
     }
 }
 
