@@ -68,7 +68,7 @@ function init() {
 
     // Test code
     //TODO: Change piece code to use numeric representation
-    shape_num = 4;
+    shape_num = Math.floor(Math.random() * shapes.length);
     pieces = [ [5, 5, 0, shapes[shape_num], shape_num] ];
     playerNum = 0;
 
