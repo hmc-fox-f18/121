@@ -1,9 +1,5 @@
 //TODO: Adjust constant locations?
 
-var colors = ["#FF5B5B", "#3DE978", "#3D7AE9", "#FF894E", "#F27DFF",
-                "#7DFFDC", "#FFDF92"]
-
-
 // Actual Code
 function clearBoard() {
     // Clear Screen
@@ -15,10 +11,8 @@ function clearBoard() {
 
 function drawPieces() {
     for (piece in pieces) {
-        let [x, y, rot, shape, shape_num] = pieces[piece];
-        let rot_shape = rotate_shape(rot, shape);
-        let width = rot_shape.length == 9 ? 3 : 4;
-        ctx.fillStyle = colors[shape_num];
+        let [x, y, color, width, rot_shape] = pieces[piece].getRenderInfo();
+        ctx.fillStyle = color;
         // Draw the blocks in the shape
         for (i in rot_shape) {
             if (rot_shape[i] == 1) {
