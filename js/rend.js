@@ -14,16 +14,17 @@ function clearBoard() {
 }
 
 function drawPieces() {
-    for (piece in pieces) {
-        let [x, y, rot, shape, shape_num] = pieces[piece];
-        let rot_shape = rotate_shape(rot, shape);
+    for (piece_state_num in gameState.piece_states) {
+        let piece_state = gameState.piece_states[piece_state_num];
+        let shape = shapes[piece_state.shape];
+        let rot_shape = rotate_shape(piece_state.rotation, shape);
         let width = rot_shape.length == 9 ? 3 : 4;
-        ctx.fillStyle = colors[shape_num];
+        ctx.fillStyle = colors[piece_state.shape];
         // Draw the blocks in the shape
         for (i in rot_shape) {
             if (rot_shape[i] == 1) {
-                let posX = canvasWidth * (x + i % width) / boardWidth;
-                let posY = canvasHeight * (y + Math.floor(i / width) )
+                let posX = canvasWidth * (piece_state.pivot.x + i % width) / boardWidth;
+                let posY = canvasHeight * (piece_state.pivot.y + Math.floor(i / width) )
                                 / boardWidth;
                 ctx.fillRect(posX, posY, blockWidth, blockHeight);
             }

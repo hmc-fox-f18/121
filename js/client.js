@@ -31,9 +31,9 @@ var blockWidth;
 
 var board;
 var ctx;
-var pieces;
+var gameState;
 
-var playerNum;
+var player_id;
 var keystate = [];
 var socket;
 var socketOpen = false;
@@ -59,18 +59,18 @@ function init() {
     blockHeight = canvasHeight / boardHeight;
     blockWidth = canvasWidth / boardWidth;
 
+    // Test code
+    //TODO: Change piece code to use numeric representation
+    shape_num = Math.floor(Math.random() * shapes.length);
+    gameState = new GameState([ new PieceState(shape_num, { x: 5, y: 5}, 1, 1) ]);
+    player_id = 1;
+
     //Initialize network and rendering components
     //TODO: delegate to relevant components
     initSocket();
     initGrid();
     clearBoard();
     drawPieces();
-
-    // Test code
-    //TODO: Change piece code to use numeric representation
-    shape_num = Math.floor(Math.random() * shapes.length);
-    pieces = [ [5, 5, 0, shapes[shape_num], shape_num] ];
-    playerNum = 0;
 
     window.addEventListener('keydown', (e) => {
         keystate[e.key] = true
@@ -96,33 +96,36 @@ function handleFrame() {
  *  position and rotation.
  */
 function updatePosition() {
+    // Use JSON to deep copy our current piece
+    // we want to do this so we do not end up updates the client without the server's permission
+    var pieceCopy = JSON.parse(JSON.stringify(getMyPiece()));
     //TODO: Consider abstracting indices to allow rebindable keys#FF5B5B#FF5B5B#FF5B5B#FF5B5B#3DE978#3DE978#3DE978
     // Move left
     if (keystate["ArrowLeft"]) {
-        pieces[playerNum][0] -= 1;
-        if (collision(pieces[playerNum])) {
-            pieces[playerNum][0] += 1;
+        pieceCopy.pivot.x -= 1;
+        if (collision(pieceCopy)) {
+            pieceCopy.pivot.x += 1;
         }
     }
     // Move right
     if (keystate["ArrowRight"]) {
-        pieces[playerNum][0] += 1;
-        if (collision(pieces[playerNum])) {
-            pieces[playerNum][0] -= 1;
+        pieceCopy.pivot.x += 1;
+        if (collision(pieceCopy)) {
+            pieceCopy.pivot.x -= 1;
         }
     }
     // Rotate clockwise
     if (keystate["ArrowUp"]) {
-        wallkick(pieces[playerNum], true);
+        wallkick(pieceCopy, true);
     }
     // Rotate counter-clockwise
     if (keystate["z"]) {
-        wallkick(pieces[playerNum], false);
+        wallkick(pieceCopy, false);
     }
 
-    // send piece info on every position update
-    if (socketOpen) {
-        sendPieceInfo();
+    // send piece info only when key is pressed
+    if (socketOpen && Object.keys(keystate).length) {
+        sendPieceInfo(pieceCopy);
     }
 }
 
@@ -136,13 +139,13 @@ function updatePosition() {
  *
  */
 function wallkick(piece, clockwise) {
-    let rot = piece[2];
+    let rot = piece.rotation;
     if (clockwise) {
-        piece[2] = (piece[2] + 1) % 4;
+        piece.rotation = (piece.rotation + 1) % 4;
     }
     else {
-        piece[2] = piece[2] - 1;
-        piece[2] = piece[2] == -1 ? 3 : piece[2];
+        piece.rotation = piece.rotation - 1;
+        piece.rotation = piece.rotation == -1 ? 3 : piece.rotation;
     }
 
     // No Change, Test 1
@@ -150,37 +153,37 @@ function wallkick(piece, clockwise) {
         return piece;
     }
     // Test 2
-    let x = piece[0];
-    let y = piece[1];
-    let x_test = (piece[2] == 2 || piece[2] == 3) ? 1 : -1;
+    let x = piece.pivot.x;
+    let y = piece.pivot.y;
+    let x_test = (piece.rotation == 2 || piece.rotation == 3) ? 1 : -1;
     x_test = clockwise ? x_test : -1 * x_test;
     let y_test = 0;
-    piece[0] = x + x_test;
-    piece[1] = y + y_test;
+    piece.pivot.x = x + x_test;
+    piece.pivot.y = y + y_test;
     if (!collision(piece)) {
         return piece;
     }
     // Test 3
-    y_test = (piece[2] == 1 || piece[2] == 3) ? 1 : -1;
-    piece[1] = y + y_test;
+    y_test = (piece.rotation == 1 || piece.rotation == 3) ? 1 : -1;
+    piece.pivot.y = y + y_test;
     if (!collision(piece)) {
         return piece;
     }
     // Test 4
-    piece[0] = x;
-    piece[1] = y + 2 * y_test;
+    piece.pivot.x = x;
+    piece.pivot.y = y + 2 * y_test;
     if (!collision(piece)) {
         return piece;
     }
     // Test 5
-    piece[0] = x + x_test;
+    piece.pivot.x = x + x_test;
     if (!collision(piece)) {
         return piece;
     }
     // All failed, return to original
-    piece[0] = x;
-    piece[1] = y;
-    piece[2] = rot;
+    piece.pivot.x = x;
+    piece.pivot.y = y;
+    piece.rotation = rot;
     return piece;
     //TODO: Implement I block wall kicks
 }
@@ -193,9 +196,9 @@ function wallkick(piece, clockwise) {
  * Returns true if there is a collision.
  */
 function collision(piece) {
-    let rot_shape = rotate_shape(piece[2], piece[3]);
-    let x = piece[0];
-    let y = piece[1];
+    let rot_shape = rotate_shape(piece.rotation, shapes[piece.shape]);
+    let x = piece.pivot.x;
+    let y = piece.pivot.y;
     //Determine whether the block is in a 3x3 or 4x4 bounding box
     let bound_width = rot_shape.length == 9 ? 3 : 4;
     for (block in rot_shape) {
