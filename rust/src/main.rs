@@ -1,19 +1,23 @@
 extern crate ws;
 extern crate rand;
+extern crate slab;
 
 mod piece_state;
 
 use crate::piece_state::PieceState;
 use rand::Rng;
 
-use ws::{listen, CloseCode, Handler, Handshake, Message, Result, Sender};
+use ws::{CloseCode, Handler, Handshake, Message, Result,
+     Sender, WebSocket};
+
+use slab::Slab;
 
 use serde_json::json;
 
 struct Server<'a> {
     out: Sender,
-    count: &'a mut u32,
-    players: Vec<PieceState>
+    player_key: usize,
+    players: &'a mut Slab<PieceState>
 }
 
 impl Handler for Server<'_> {
@@ -24,27 +28,41 @@ impl Handler for Server<'_> {
             Ok(v) => println!("User Connected with Address: {:?}", v),
             Err(e) => println!("Unable to get user address: {:?}", e),
         }
-        let piece_type: u8 = next_piece();
-        let player_id = *self.count;
-        let response = json!({
-            "player_num": player_id,
-            "piece_type": piece_type,
-            "type": "Initialize"
-        });
-        println!("Piece Type Given: {:?}", piece_type);
-        println!("This is {:?}", self.out.token());
-        let new_piece_state = PieceState{
+        let player_id : usize = self.out.token().into();
+        println!("This is {:?}", player_id);
+
+        //TODO: Consider if different responses are needed for
+        //Reconnecting players
+        let response;
+        if self.players.contains(player_id) {
+            let new_piece_state = self.players.get(player_id).unwrap();
+            let piece_type = new_piece_state.shape;
+            response = json!({
+                "player_num": player_id,
+                "piece_type": piece_type,
+                "type": "Initialize"
+            });
+        }
+        else {
+            // Player doesn't exist, add too players list
+            let piece_type: u8 = next_piece();
+            let new_piece_state = PieceState{
                 shape: piece_type,
                 x: 5,
                 y: 5,
                 rotation: 0,
                 player_id: player_id
-        };
+            };
+            println!("{:?}", new_piece_state);
+            self.player_key = self.players.insert(new_piece_state);
+            response = json!({
+                "player_num": player_id,
+                "piece_type": piece_type,
+                "type": "Initialize"
+            });
+        }
         println!("{:?}", self.players);
-        self.players.push(new_piece_state);
-        println!("{:?}", self.players);
-        self.out.send(response.to_string());
-        *self.count += 1;
+        self.out.send(response.to_string()).unwrap();
         return Ok(());
     }
 
@@ -56,19 +74,20 @@ impl Handler for Server<'_> {
             // else send blank response OK(()) (send nothing)
             match serde_json::from_str::<PieceState>(&text) {
                 Ok(new_piece_state) => {
-                    let player_id = new_piece_state.player_id;
-                    for state in self.players.iter_mut() {
-                        if state.player_id == player_id {
-                            *state = new_piece_state;
-                            break;
-                        }
-                    }
-                    //println!("Received status:\n{:?}\n", new_piece_state);
-                    //println!("Stored {} Players as: {:?}",
-                    //    self.players.len(), self.players);
-                    return self.out.send(text);
+                    let state = self.players.get_mut(self.player_key).unwrap();
+                    *state = new_piece_state;
+                    let mut states : Vec<&PieceState> = self.players
+                                        .iter()
+                                        .map(|(key, val)| val)
+                                        .collect();
+                    let response = json!({
+                        "player_states": states,
+                        "type": "gameState"
+                    });
+                    //println!("{}", text);
+                    return self.out.send(response.to_string());
                 }
-                Err(e) => {
+                Err(_e) => {
                     //println!("Could not parse status: {}\n", e);
                     return Ok(());
                 },
@@ -93,15 +112,20 @@ fn next_piece() -> u8 {
 }
 
 fn main() {
-    let count : &'static mut u32 = &mut 0;
+    let players : &mut Slab<PieceState> = &mut Slab::new();
     let server_gen  = |out : Sender| {
         Server {
             out: out,
-            count: count,
-            players: Vec::new()
+            player_key: 0,
+            players: players
         }
     };
-
-    listen("127.0.0.1:3012", server_gen).unwrap();
+    // Same functionality as listen command, but actually compiles?
+    let socket = WebSocket::new(server_gen).unwrap();
+    let socket = match socket.bind("127.0.0.1:3012") {
+        Ok(v) => v,
+        Err(e) => panic!("Socket in Use, Please Close Other Server"),
+    };
+    socket.run().unwrap();
 }
 

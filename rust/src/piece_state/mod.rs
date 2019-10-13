@@ -6,5 +6,5 @@ pub struct PieceState {
     pub x: u8,
     pub y:u8,
     pub rotation: u8,
-    pub player_id: u32
+    pub player_id: usize
 }
