@@ -6,20 +6,17 @@ mod piece_state;
 use crate::piece_state::PieceState;
 use rand::Rng;
 
-use std::cell::Cell;
-use std::rc::Rc;
-
 use ws::{listen, CloseCode, Handler, Handshake, Message, Result, Sender};
 
 use serde_json::json;
 
-struct Server {
+struct Server<'a> {
     out: Sender,
-    count: Rc<Cell<u32>>,
+    count: &'a mut u32,
     players: Vec<PieceState>
 }
 
-impl Handler for Server {
+impl Handler for Server<'_> {
     fn on_open(&mut self, shake: Handshake) -> Result<()> {
         println!("Request: {}", shake.request);
         let address = shake.remote_addr();
@@ -28,7 +25,7 @@ impl Handler for Server {
             Err(e) => println!("Unable to get user address: {:?}", e),
         }
         let piece_type: u8 = next_piece();
-        let player_id = self.count.get();
+        let player_id = *self.count;
         let response = json!({
             "player_num": player_id,
             "piece_type": piece_type,
@@ -47,7 +44,8 @@ impl Handler for Server {
         self.players.push(new_piece_state);
         println!("{:?}", self.players);
         self.out.send(response.to_string());
-        return Ok(self.count.set(self.count.get() + 1));
+        *self.count += 1;
+        return Ok(());
     }
 
     fn on_message(&mut self, msg: Message) -> Result<()> {
@@ -95,11 +93,15 @@ fn next_piece() -> u8 {
 }
 
 fn main() {
-    let count = Rc::new(Cell::new(0));
-    listen("127.0.0.1:3012", |out : Sender| Server {
-        out: out,
-        count: count.clone(),
-        players: Vec::new()
-    })
-    .unwrap();
+    let count : &'static mut u32 = &mut 0;
+    let server_gen  = |out : Sender| {
+        Server {
+            out: out,
+            count: count,
+            players: Vec::new()
+        }
+    };
+
+    listen("127.0.0.1:3012", server_gen).unwrap();
 }
+
