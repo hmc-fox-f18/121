@@ -18,10 +18,9 @@ function initSocket() {
 
     socket.onmessage = function(event) {
         let message = JSON.parse(event.data);
-        if (message.type == 'Initialize') {
+        if (message.type == 'init') {
             initializeFromServer(message)
-        }
-        else {
+        } else {
             //alert(`[message] Data received from server: ${event.data}`);
         }
     };

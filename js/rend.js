@@ -22,6 +22,10 @@ function drawPieces() {
                 let posX = canvasWidth * (piece_state.pivot.x + i % width) / boardWidth;
                 let posY = canvasHeight * (piece_state.pivot.y + Math.floor(i / width) )
                                 / boardWidth;
+                if piece_state.player_id == playerNum {
+                  ctx.shadowColor = '#00ff00';
+                  ctx.shadowBlur = 40;
+                }
                 ctx.fillRect(posX, posY, blockWidth, blockHeight);
             }
         }
