@@ -1,12 +1,12 @@
 //TODO: Adjust Constant Locations?
 
-
 function isMyPiece(piece) {
-  return piece.player_id == player_id;
+    return piece.player_id == player_id;
 }
 
 function getMyPiece() {
-  return gameState.piece_states.find(isMyPiece);
+    // returns a piece that passes the isMyPiece check
+    return gameState.piece_states.find(isMyPiece);
 }
 
 function sendPieceInfo(myUpdatedPiece) {
@@ -18,6 +18,7 @@ function initSocket() {
 
     socket.onopen = function(e) {
         //socket.send("Started");
+        console.log(e);
         socketOpen = true;
     };
 
