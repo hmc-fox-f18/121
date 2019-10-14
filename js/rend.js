@@ -1,9 +1,5 @@
 //TODO: Adjust constant locations?
 
-var colors = ["#FF5B5B", "#3DE978", "#3D7AE9", "#FF894E", "#F27DFF",
-                "#7DFFDC", "#FFDF92"]
-
-
 // Actual Code
 function clearBoard() {
     // Clear Screen

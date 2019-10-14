@@ -1,16 +1,10 @@
 //TODO: Adjust Constant Locations?
 
-function isMyPiece(piece) {
-    return piece.player_id == player_id;
-}
-
-function getMyPiece() {
-    // returns a piece that passes the isMyPiece check
-    return gameState.piece_states.find(isMyPiece);
-}
-
-function sendPieceInfo(myUpdatedPiece) {
-    socket.send(myUpdatedPiece);
+function sendPieceInfo() {
+    let [x, y, rot, shape_num] = pieces[playerNum].getNetworkInfo();
+    let message = {x: x, y: y, rotation: rot, shape: shape_num,
+         player_id: playerNum, type: "PieceState"};
+    socket.send(JSON.stringify(message));
 }
 
 function initSocket() {
@@ -23,11 +17,13 @@ function initSocket() {
     };
 
     socket.onmessage = function(event) {
-      console.log(event);
-      alert(`[message] Data received from server: ${event.data}`);
-      var game_state_raw = JSON.parse(event.data);
-      gameState = Object.assign(new GameState, game_state_raw)
-      console.log(gameState);
+        let message = JSON.parse(event.data);
+        if (message.type == 'Initialize') {
+            initializeFromServer(message)
+        }
+        else {
+            //alert(`[message] Data received from server: ${event.data}`);
+        }
     };
 
     socket.onclose = function(event) {
@@ -44,4 +40,14 @@ function initSocket() {
     socket.onerror = function(error) {
       alert(`[error] ${error.message}`);
     };
+}
+
+function initializeFromServer(message) {
+    playerNum = message.player_id;
+    shapeNum = message.piece_type;
+    player_piece = shapes[shapeNum];
+    player_piece.x = 5;
+    player_piece.y = 5;
+    pieces = [ player_piece ];
+    playerNum = 0;
 }
