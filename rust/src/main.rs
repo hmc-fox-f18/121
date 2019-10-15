@@ -55,9 +55,9 @@ impl Handler for Client<'_> {
             let new_piece_state = players.get(player_id).unwrap();
             let piece_type = new_piece_state.shape;
             response = json!({
-                "player_num": player_id,
+                "player_id": player_id,
                 "piece_type": piece_type,
-                "type": "Initialize"
+                "type": "init"
             });
         }
         else {
@@ -74,9 +74,9 @@ impl Handler for Client<'_> {
             // Insert new player data into game state
             self.player_key = players.insert(new_piece_state);
             response = json!({
-                "player_num": player_id,
+                "player_id": player_id,
                 "piece_type": piece_type,
-                "type": "Initialize"
+                "type": "init"
             });
         }
         self.out.send(response.to_string())
@@ -223,7 +223,7 @@ fn game_frame(broadcaster: Sender,
                             .collect();
 
         let response = json!({
-            "player_states": states,
+            "piece_states": states,
             "type": "gameState"
         });
         //println!("{:?}", states);
@@ -279,4 +279,3 @@ fn main() {
     // Run the server on this thread
     socket.run().unwrap();
 }
-

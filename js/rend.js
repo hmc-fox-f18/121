@@ -11,6 +11,7 @@ function clearBoard() {
 
 function drawPieces() {
     for (piece in pieces) {
+        console.log(piece)
         let [x, y, color, width, rot_shape] = pieces[piece].getRenderInfo();
         ctx.fillStyle = color;
         // Draw the blocks in the shape
@@ -19,6 +20,10 @@ function drawPieces() {
                 let posX = canvasWidth * (x + i % width) / boardWidth;
                 let posY = canvasHeight * (y + Math.floor(i / width) )
                                 / boardWidth;
+                if (piece.player_id == playerNum) {
+                  ctx.shadowColor = '#00ff00';
+                  ctx.shadowBlur = 40;
+                }
                 ctx.fillRect(posX, posY, blockWidth, blockHeight);
             }
         }
