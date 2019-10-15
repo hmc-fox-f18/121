@@ -5,6 +5,7 @@ extern crate slab;
 mod piece_state;
 
 use crate::piece_state::PieceState;
+use crate::piece_state::Pivot;
 use rand::Rng;
 use std::sync::{Arc, Mutex};
 use std::{time, thread};
@@ -66,8 +67,10 @@ impl Handler for Client<'_> {
             let piece_type: u8 = next_piece();
             let new_piece_state = PieceState{
                 shape: piece_type,
-                x: 5,
-                y: 5,
+                pivot: Pivot{
+                    x: 5,
+                    y: 5
+                },
                 rotation: 0,
                 player_id: player_id
             };

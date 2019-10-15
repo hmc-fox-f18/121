@@ -1,6 +1,6 @@
 /* jshint esversion: 6 */
 class Piece {
-    constructor(shape, shape_num, color, x, y, rot, boundWidth, player_id) {
+    constructor(shape, shape_num, color, x, y, rot, boundWidth) {
         this.shape = shape;
         this.shape_num = shape_num;
         this.color = color;
@@ -8,7 +8,6 @@ class Piece {
         this.y = y;
         this.rot = rot;
         this.boundWidth = boundWidth;
-        this.player_id = player_id;
     }
 
     getRenderInfo() {
