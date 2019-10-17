@@ -5,6 +5,7 @@ extern crate slab;
 mod piece_state;
 
 use crate::piece_state::PieceState;
+use crate::piece_state::Pivot;
 use rand::Rng;
 use std::sync::{Arc, Mutex};
 use std::{time, thread};
@@ -55,9 +56,9 @@ impl Handler for Client<'_> {
             let new_piece_state = players.get(player_id).unwrap();
             let piece_type = new_piece_state.shape;
             response = json!({
-                "player_num": player_id,
+                "player_id": player_id,
                 "piece_type": piece_type,
-                "type": "Initialize"
+                "type": "init"
             });
         }
         else {
@@ -66,17 +67,19 @@ impl Handler for Client<'_> {
             let piece_type: u8 = next_piece();
             let new_piece_state = PieceState{
                 shape: piece_type,
-                x: 5,
-                y: 5,
+                pivot: Pivot{
+                    x: 5,
+                    y: 5
+                },
                 rotation: 0,
                 player_id: player_id
             };
             // Insert new player data into game state
             self.player_key = players.insert(new_piece_state);
             response = json!({
-                "player_num": player_id,
+                "player_id": player_id,
                 "piece_type": piece_type,
-                "type": "Initialize"
+                "type": "init"
             });
         }
         self.out.send(response.to_string())
@@ -223,7 +226,7 @@ fn game_frame(broadcaster: Sender,
                             .collect();
 
         let response = json!({
-            "player_states": states,
+            "piece_states": states,
             "type": "gameState"
         });
         //println!("{:?}", states);
@@ -279,4 +282,3 @@ fn main() {
     // Run the server on this thread
     socket.run().unwrap();
 }
-

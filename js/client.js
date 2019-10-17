@@ -7,17 +7,6 @@
 const bgColor= "black";
 const strokeStyle = "white";
 
-//The matrices representing the game pieces
-const pieceZ = new Piece([ 1, 1, 0, 0, 1, 1, 0, 0, 0], 0,  "#FF5B5B", 0, 0, 0, 3); //0
-const pieceS = new Piece([ 0, 1, 1, 1, 1, 0, 0, 0, 0], 1, "#3DE978", 0, 0, 0, 3); //1
-const pieceJ = new Piece([ 1, 0, 0, 1, 1, 1, 0, 0, 0], 2, "#3D7AE9", 0, 0, 0, 3); //2
-const pieceR = new Piece([ 0, 0, 1, 1, 1, 1, 0, 0, 0], 3, "#FF894E", 0, 0, 0, 3); //3
-const pieceT = new Piece([ 0, 1, 0, 1, 1, 1, 0, 0, 0], 4, "#F27DFF", 0, 0, 0, 3); //4
-const pieceI = new Piece([ 0, 0, 0, 0, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0], 5, "#7DFFDC", 0, 0, 0, 4); //5
-const pieceO = new Piece([ 0, 0, 0, 0, 0, 1, 1, 0, 0, 1, 1, 0, 0, 0, 0, 0], 6, "#FFDF92", 0, 0, 0, 4); //6
-const shapes = [pieceZ, pieceS, pieceJ, pieceR, pieceT, pieceI, pieceO];
-
-
 // ******   Variables   ********
 //TODO: Consider removing global variables or moving relevant parts to
 //other components
@@ -32,13 +21,14 @@ var blockWidth;
 
 var board;
 var ctx;
-var gameState;
 
-var playerNum;
+var player_id;
 var pieceNum;
 var keystate = [];
 var socket;
 var socketOpen = false;
+
+var game_state = new GameState([]);
 
 // Actual Code
 
@@ -87,7 +77,7 @@ function init() {
  *  and rendering logic to draw the frame and send data to the server
  */
 function handleFrame() {
-    if (playerNum != undefined) {
+    if (player_id != undefined) {
         updatePosition();
         keystate = [];
         draw_frame();
@@ -100,157 +90,37 @@ function handleFrame() {
  *  position and rotation.
  */
 function updatePosition() {
-    // Use JSON to deep copy our current piece
-    // we want to do this so we do not end up updates the client without the server's permission
-    var pieceCopy = JSON.parse(JSON.stringify(getMyPiece()));
+    var myPiece = getMyPiece();
+    // if we do not have a piece yet, do not take input
+    if (!myPiece) {
+      return
+    }
+    // Use Prototype to deep copy our current piece
+    // we want to do this so we do not end up updating the client without the server's permission
+    var myUpdatedPiece = Object.assign( Object.create( Object.getPrototypeOf(myPiece)), myPiece);
+
     //TODO: Consider abstracting indices to allow rebindable keys#FF5B5B#FF5B5B#FF5B5B#FF5B5B#3DE978#3DE978#3DE978
     // Move left
     if (keystate["ArrowLeft"]) {
-        pieceCopy.pivot.x -= 1;
-        if (collision(pieceCopy)) {
-            pieceCopy.pivot.x += 1;
+        myUpdatedPiece.pivot.x -= 1;
+        if (myUpdatedPiece.collision()) {
+            myUpdatedPiece.pivot.x += 1;
         }
     }
     // Move right
     if (keystate["ArrowRight"]) {
-        pieceCopy.pivot.x += 1;
-        if (collision(pieceCopy)) {
-            pieceCopy.pivot.x -= 1;
+        myUpdatedPiece.pivot.x += 1;
+        if (myUpdatedPiece.getPiece().collision()) {
+            myUpdatedPiece.pivot.x -= 1;
         }
     }
     // Rotate clockwise
     if (keystate["ArrowUp"]) {
-        wallkick(pieceCopy, true);
+        myUpdatedPiece.wallkick(true);
     }
     // Rotate counter-clockwise
     if (keystate["z"]) {
-        wallkick(pieceCopy, false);
-    }
-
-    // send piece info only when key is pressed
-    if (socketOpen && Object.keys(keystate).length) {
-        sendPieceInfo(pieceCopy);
-    }
-}
-
-/**
- *
- * Takes in a piece and whether the rotation is clockwise as an input,
- * and tries to perform a series of wallkicks to determine what the
- * resulting position from this rotation should be. If no wall kicks are
- * valid positions, the function will return the original position and
- * rotation.
- *
- */
-function wallkick(piece, clockwise) {
-    let rot = piece.rotation;
-    if (clockwise) {
-        piece.rotation = (piece.rotation + 1) % 4;
-    }
-    else {
-        piece.rotation = piece.rotation - 1;
-        piece.rotation = piece.rotation == -1 ? 3 : piece.rotation;
-    }
-
-    // No Change, Test 1
-    if (!collision(piece)) {
-        return piece;
-    }
-    // Test 2
-    let x = piece.pivot.x;
-    let y = piece.pivot.y;
-    let x_test = (piece.rotation == 2 || piece.rotation == 3) ? 1 : -1;
-    x_test = clockwise ? x_test : -1 * x_test;
-    let y_test = 0;
-    piece.pivot.x = x + x_test;
-    piece.pivot.y = y + y_test;
-    if (!collision(piece)) {
-        return piece;
-    }
-    // Test 3
-    y_test = (piece.rotation == 1 || piece.rotation == 3) ? 1 : -1;
-    piece.pivot.y = y + y_test;
-    if (!collision(piece)) {
-        return piece;
-    }
-    // Test 4
-    piece.pivot.x = x;
-    piece.pivot.y = y + 2 * y_test;
-    if (!collision(piece)) {
-        return piece;
-    }
-    // Test 5
-    piece.pivot.x = x + x_test;
-    if (!collision(piece)) {
-        return piece;
-    }
-    // All failed, return to original
-    piece.pivot.x = x;
-    piece.pivot.y = y;
-    piece.rotation = rot;
-    return piece;
-    //TODO: Implement I block wall kicks
-}
-
-/**
- *
- * Takes in a piece, and checks for any collisions with other game
- * elements which would invalidate the pieces position.
- *
- * Returns true if there is a collision.
- */
-function collision(piece) {
-    let rot_shape = rotate_shape(piece.rotation, shapes[piece.shape]);
-    let x = piece.pivot.x;
-    let y = piece.pivot.y;
-    //Determine whether the block is in a 3x3 or 4x4 bounding box
-    let bound_width = rot_shape.length == 9 ? 3 : 4;
-    for (block in rot_shape) {
-        if (rot_shape[block] == 1) {
-            if (x + (block % bound_width) < 0) {
-                return true;
-            }
-            else if (x + (block % bound_width) >= boardWidth) {
-                return true;
-            }
-        }
-    }
-    //TODO: Check for collision with other pieces and floor
-    return false;
-}
-
-function rotate_shape(rot, shape) {
-    switch(rot) {
-        case 1:
-            return rotate_cw(shape);
-            break;
-        case 2:
-            return rotate_180(shape);
-            break;
-        case 3:
-            return rotate_ccw(shape);
-            break;
-        default:
-            return shape;
-            break;
-    }
-}
-
-//TODO: Better rotation method
-/**
- *
- * Takes in a piece array and returns a new one rotated
- * counter-clockwise
- *
- */
-function rotate_ccw(shape) {
-    if (shape.length == 9) {
-        let [b7, b4, b1, b8, b5, b2, b9, b6, b3] = shape;
-        return [b1, b2, b3, b4, b5, b6, b7, b8, b9];
-    }
-    else {
-        let [b4, b8, b12, b16, b3, b7, b11, b15, b2, b6, b10, b14, b1, b5, b9, b13] = shape;
-        return [b1, b2, b3, b4, b5, b6, b7, b8, b9, b10, b11, b12, b13, b14, b15, b16];
+        myUpdatedPiece.wallkick(false);
     }
 }
 
@@ -271,19 +141,8 @@ function rotate_cw(shape) {
     }
 }
 
-/**
- *
- * Takes in a piece array and returns a new one rotated
- * 180 degrees
- *
- */
-function rotate_180(shape) {
-    if (shape.length == 9) {
-        let [b9, b8, b7, b6, b5, b4, b3, b2, b1] = shape;
-        return [b1, b2, b3, b4, b5, b6, b7, b8, b9];
-    }
-    else {
-        let [b16, b15, b14, b13, b12, b11, b10, b9, b8, b7, b6, b5, b4, b3, b2, b1] = shape;
-        return [b1, b2, b3, b4, b5, b6, b7, b8, b9, b10, b11, b12, b13, b14, b15, b16];
+    // send piece info on every position update
+    if (socketOpen) {
+        sendPieceInfo(myUpdatedPiece);
     }
 }
