@@ -28,6 +28,8 @@ class PieceState {
     return this.getPiece().collision();
   }
 
+  // TODO: this doesn't actually change this.rotation, which doesn't make
+  // much sense to me.
   wallkick(clockwise) {
     return this.getPiece().wallkick(clockwise)
   }
@@ -37,5 +39,19 @@ class PieceState {
 class GameState {
   constructor(piece_states) {
     this.piece_states = piece_states;
+  }
+
+  static fromJson(json) {
+    const json_obj = JSON.parse(json);
+
+    let piece_states = json_obj['piece_states'].map((x) => {
+      return new PieceState(
+        x['shape'],
+        x['pivot'],
+        x['rotation'],
+        x['player_id'])
+    });
+
+    return new GameState(piece_states);
   }
 }

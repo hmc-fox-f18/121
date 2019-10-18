@@ -52,6 +52,8 @@ class Piece {
      * Returns the piece array rotated 90 degrees counter-clockwise
      */
     rotate_ccw() {
+        console.log("rotate ccw");
+
         if (this.boundWidth == 3) {
             let [b7, b4, b1, b8, b5, b2, b9, b6, b3] = this.shape;
             return [b1, b2, b3, b4, b5, b6, b7, b8, b9];
@@ -66,6 +68,7 @@ class Piece {
      * Returns the piece array rotated 90 degrees clockwise
      */
     rotate_cw() {
+        console.log("rotate cw");
         if (this.boundWidth == 3) {
             let [b3, b6, b9, b2, b5, b8, b1, b4, b7] = this.shape;
             return [b1, b2, b3, b4, b5, b6, b7, b8, b9];
