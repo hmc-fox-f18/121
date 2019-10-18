@@ -26,7 +26,6 @@ function initSocket(connectionCallback) {
           my_player_id = message.player_id;
         } else {
           game_state = GameState.fromJson(event.data);
-          console.log(game_state);
 
           if (!made_callback) {
             made_callback = true;

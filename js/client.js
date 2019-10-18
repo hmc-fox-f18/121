@@ -109,13 +109,17 @@ function updatePosition() {
     }
     // Rotate clockwise
     if (keystate["ArrowUp"]) {
-        myUpdatedPiece.wallkick(true);
-
+        if (myUpdatedPiece.wallkick(true)) {
+          myUpdatedPiece.rotation = (myUpdatedPiece.rotation + 1) % 4;
+        }
     }
     // Rotate counter-clockwise
     if (keystate["z"]) {
-        myUpdatedPiece.wallkick(false);
+        if(myUpdatedPiece.wallkick(false)) {
+          myUpdatedPiece.rotation = (myUpdatedPiece.rotation - 1) % 4;
+        }
     }
+
 
     // send update piece position to the server
     const piece_obj = JSON.stringify(myUpdatedPiece);
