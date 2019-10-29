@@ -3,9 +3,13 @@ extern crate rand;
 extern crate slab;
 
 mod piece_state;
+mod input;
+mod tetris;
 
-use crate::piece_state::PieceState;
-use crate::piece_state::Pivot;
+use crate::piece_state::{PieceState, Pivot};
+use crate::input::{KeyState};
+use crate::tetris::update_state;
+
 use rand::Rng;
 use std::sync::{Arc, Mutex};
 use std::{time, thread};
@@ -17,17 +21,23 @@ use slab::Slab;
 
 use serde_json::json;
 
-const FRAME_TIME : time::Duration = time::Duration::from_millis(10);
+const FRAME_MILLIS : u64 = (1000.0 / 60.0) as u64;
+const FRAME_TIME : time::Duration = time::Duration::from_millis(FRAME_MILLIS);
+const SAVED_FRAMES : usize = 120;
 
 /**
  *
  * The representation of an individual client
  *
+ * TODO: Implement saving data frames for rollback?
+ *
+ * TODO: Split client into separate module for code clarity?
  */
 struct Client<'a> {
     out: Sender,
     player_key: usize,
-    players: &'a Mutex<Slab<PieceState>>
+    players: &'a Mutex<Slab<PieceState>>,
+    frame_num: &'a Mutex<usize>
 }
 
 impl Handler for Client<'_> {
@@ -93,12 +103,13 @@ impl Handler for Client<'_> {
         // Parse the msg as text
         if let Ok(text) = msg.into_text() {
             // Try to parse the message as a piece state
-            match serde_json::from_str::<PieceState>(&text) {
-                Ok(new_piece_state) => {
+            match serde_json::from_str::<KeyState>(&text) {
+                Ok(player_input) => {
                     let mut players = self.players.lock().unwrap();
+                    //let mut game = self.game.lock().unwrap();
                     let state = players.get_mut(self.player_key).unwrap();
                     // Update state for player
-                    *state = new_piece_state;
+                    update_state(&mut players, &player_input);
                     // Don't trust input, ensure labelled properly
                     let player_id : usize = self.out.token().into();
                     state.player_id = player_id;
@@ -214,7 +225,8 @@ fn next_piece() -> u8 {
  *
  */
 fn game_frame(broadcaster: Sender,
-                thread_players: Arc<Mutex<Slab<PieceState>>>) {
+                thread_players: Arc<Mutex<Slab<PieceState>>>,
+                thread_frame_num: Arc<Mutex<usize>>) {
     loop {
         let players = thread_players.lock().unwrap();
 
@@ -243,6 +255,7 @@ fn game_frame(broadcaster: Sender,
     }
 }
 
+
 /**
  *
  *  The code which initializes the server.
@@ -254,14 +267,17 @@ fn game_frame(broadcaster: Sender,
  *
  */
 fn main() {
+    let frame_num = Arc::new(Mutex::new(0));
     let players = Arc::new(Mutex::new(Slab::new()));
+    let thread_frame_num = frame_num.clone();
     let thread_players = players.clone();
     // Code that initializes client structs
     let server_gen  = |out : Sender| {
         Client {
             out: out,
             player_key: 0,
-            players: &players
+            players: &players,
+            frame_num: &frame_num
         }
     };
 
@@ -277,7 +293,7 @@ fn main() {
     // Clone broadcaster to send data to clients on other thread
     let broadcaster = socket.broadcaster().clone();
     let _game_thread = thread::spawn(move || {
-        game_frame(broadcaster, thread_players);
+        game_frame(broadcaster, thread_players, thread_frame_num);
     });
     // Run the server on this thread
     socket.run().unwrap();
