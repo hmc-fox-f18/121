@@ -3,6 +3,7 @@ extern crate rand;
 extern crate slab;
 
 mod piece_state;
+mod tests;
 
 use crate::piece_state::PieceState;
 use crate::piece_state::Pivot;
@@ -14,7 +15,6 @@ use ws::{CloseCode, Handler, Handshake, Message, Result,
      Sender, WebSocket, util::Token, util::Timeout};
 
 use slab::Slab;
-
 use serde_json::json;
 
 const FRAME_TIME : time::Duration = time::Duration::from_millis(10);
@@ -202,7 +202,7 @@ fn remove_player(player_key: Token,
  *  TODO: Implement Tetris bag generation for better distribution
  *
  */
-fn next_piece() -> u8 {
+pub fn next_piece() -> u8 {
     let mut rng = rand::thread_rng();
     return rng.gen_range(0, 7);
 }
