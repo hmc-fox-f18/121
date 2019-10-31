@@ -1,3 +1,4 @@
+/*jshint esversion: 6 */
 //TODO: Adjust Constant Locations?
 
 function isMyPiece(piece) {
@@ -48,4 +49,17 @@ function initSocket(connectionCallback) {
     socket.onerror = function(error) {
       alert(`[error] ${error.message}`);
     };
+}
+
+function sendInput(inputs) {
+    let convertedArr = {};
+    convertedArr.left = inputs.ArrowLeft || false;
+    convertedArr.right = inputs.ArrowRight || false;
+    convertedArr.counter_rot = inputs.ArrowUp || false;
+    convertedArr.rot = inputs.z || false;
+    convertedArr.hard_drop = false;
+    convertedArr.fast_drop = false;
+    convertedArr.player_id = my_player_id;
+    let message = JSON.stringify(convertedArr);
+    socket.send(message);
 }
