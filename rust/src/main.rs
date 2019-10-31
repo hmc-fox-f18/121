@@ -23,7 +23,6 @@ use serde_json::json;
 
 const FRAME_MILLIS : u64 = (1000.0 / 60.0) as u64;
 const FRAME_TIME : time::Duration = time::Duration::from_millis(FRAME_MILLIS);
-const SAVED_FRAMES : usize = 120;
 
 /**
  *
@@ -36,8 +35,7 @@ const SAVED_FRAMES : usize = 120;
 struct Client<'a> {
     out: Sender,
     player_key: usize,
-    players: &'a Mutex<Slab<PieceState>>,
-    frame_num: &'a Mutex<usize>
+    players: &'a Mutex<Slab<PieceState>>
 }
 
 impl Handler for Client<'_> {
@@ -104,15 +102,13 @@ impl Handler for Client<'_> {
         if let Ok(text) = msg.into_text() {
             // Try to parse the message as a piece state
             match serde_json::from_str::<KeyState>(&text) {
-                Ok(player_input) => {
+                Ok(mut player_input) => {
                     let mut players = self.players.lock().unwrap();
-                    //let mut game = self.game.lock().unwrap();
-                    let state = players.get_mut(self.player_key).unwrap();
-                    // Update state for player
-                    update_state(&mut players, &player_input);
                     // Don't trust input, ensure labelled properly
                     let player_id : usize = self.out.token().into();
-                    state.player_id = player_id;
+                    player_input.player_id = player_id;
+                    // Update state for player
+                    update_state(&mut players, &player_input);
                     return Ok(());
                 }
                 Err(e) => {
@@ -187,7 +183,7 @@ impl Handler for Client<'_> {
      *  //TODO: Make this actually work properly
      *
      */
-    fn on_new_timeout(&mut self, event: Token, timeout: Timeout) -> Result<()> {
+    fn on_new_timeout(&mut self, _event: Token, timeout: Timeout) -> Result<()> {
         self.out.cancel(timeout)
     }
 }
@@ -197,13 +193,13 @@ impl Handler for Client<'_> {
  *  Function which removes a given player from the player slab.
  *
  */
-fn remove_player(player_key: Token,
-                    players: &Mutex<Slab<PieceState>>) {
+fn remove_player(_player_key: Token,
+                    _players: &Mutex<Slab<PieceState>>) {
     // Remove client from game state
-    let player_id : usize = player_key.into();
-    let mut players = players.lock().unwrap();
+    //let player_id : usize = player_key.into();
+    //let mut players = players.lock().unwrap();
     //players.remove(player_id);
-    drop(players);
+    //drop(players);
 }
 
 /**
@@ -225,8 +221,7 @@ fn next_piece() -> u8 {
  *
  */
 fn game_frame(broadcaster: Sender,
-                thread_players: Arc<Mutex<Slab<PieceState>>>,
-                thread_frame_num: Arc<Mutex<usize>>) {
+                thread_players: Arc<Mutex<Slab<PieceState>>>) {
     loop {
         let players = thread_players.lock().unwrap();
 
@@ -267,17 +262,14 @@ fn game_frame(broadcaster: Sender,
  *
  */
 fn main() {
-    let frame_num = Arc::new(Mutex::new(0));
     let players = Arc::new(Mutex::new(Slab::new()));
-    let thread_frame_num = frame_num.clone();
     let thread_players = players.clone();
     // Code that initializes client structs
     let server_gen  = |out : Sender| {
         Client {
             out: out,
             player_key: 0,
-            players: &players,
-            frame_num: &frame_num
+            players: &players
         }
     };
 
@@ -293,7 +285,7 @@ fn main() {
     // Clone broadcaster to send data to clients on other thread
     let broadcaster = socket.broadcaster().clone();
     let _game_thread = thread::spawn(move || {
-        game_frame(broadcaster, thread_players, thread_frame_num);
+        game_frame(broadcaster, thread_players);
     });
     // Run the server on this thread
     socket.run().unwrap();

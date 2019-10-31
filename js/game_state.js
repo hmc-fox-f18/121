@@ -1,3 +1,4 @@
+/*jshint esversion: 6 */
 //The matrices representing the game pieces
 const pieceZ = new Piece([ 1, 1, 0, 0, 1, 1, 0, 0, 0], 0,  "#FF5B5B", 0, 0, 0, 3); //0
 const pieceS = new Piece([ 0, 1, 1, 1, 1, 0, 0, 0, 0], 1, "#3DE978", 0, 0, 0, 3); //1
@@ -31,7 +32,7 @@ class PieceState {
   // TODO: this doesn't actually change this.rotation, which doesn't make
   // much sense to me.
   wallkick(clockwise) {
-    return this.getPiece().wallkick(clockwise)
+    return this.getPiece().wallkick(clockwise);
   }
 }
 
@@ -42,14 +43,14 @@ class GameState {
   }
 
   static fromJson(json) {
-    const json_obj = JSON.parse(json);
+    const server_state = JSON.parse(json);
 
-    let piece_states = json_obj['piece_states'].map((x) => {
+    let piece_states = server_state.piece_states.map((x) => {
       return new PieceState(
-        x['shape'],
-        x['pivot'],
-        x['rotation'],
-        x['player_id'])
+        x.shape,
+        x.pivot,
+        x.rotation,
+        x.player_id);
     });
 
     return new GameState(piece_states);

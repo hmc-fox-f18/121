@@ -1,3 +1,4 @@
+/*jshint esversion: 6 */
 //TODO: Consider using JS modules for imports
 
 //TODO: Consider splitting game logic into separate code from base
@@ -28,7 +29,6 @@ var socket;
 var socketOpen = false;
 
 var game_state = new GameState([]);
-
 // Actual Code
 
 /**
@@ -52,7 +52,7 @@ function init() {
 
     // store keypresses
     window.addEventListener('keydown', (e) => {
-        keystate[e.key] = true
+        keystate[e.key] = true;
         e.preventDefault();
     });
 
@@ -75,7 +75,7 @@ function handleFrame() {
     updatePosition();
     keystate = [];
     draw_frame();
-    window.requestAnimationFrame(handleFrame)
+    window.requestAnimationFrame(handleFrame);
 }
 
 /**
@@ -86,42 +86,10 @@ function updatePosition() {
     var myPiece = getMyPiece();
     // if we do not have a piece yet, do not take input
     if (!myPiece) {
-      return
+      return;
     }
-    // Use Prototype to deep copy our current piece
-    // we want to do this so we do not end up updating the client without the server's permission
-    var myUpdatedPiece = Object.assign( Object.create( Object.getPrototypeOf(myPiece)), myPiece);
-
-    //TODO: Consider abstracting indices to allow rebindable keys#FF5B5B#FF5B5B#FF5B5B#FF5B5B#3DE978#3DE978#3DE978
-    // Move left
-    if (keystate["ArrowLeft"]) {
-        myUpdatedPiece.pivot.x -= 1;
-        if (myUpdatedPiece.collision()) {
-            myUpdatedPiece.pivot.x += 1;
-        }
-    }
-    // Move right
-    if (keystate["ArrowRight"]) {
-        myUpdatedPiece.pivot.x += 1;
-        if (myUpdatedPiece.getPiece().collision()) {
-            myUpdatedPiece.pivot.x -= 1;
-        }
-    }
-    // Rotate clockwise
-    if (keystate["ArrowUp"]) {
-        if (myUpdatedPiece.wallkick(true)) {
-          myUpdatedPiece.rotation = (myUpdatedPiece.rotation + 1) % 4;
-        }
-    }
-    // Rotate counter-clockwise
-    if (keystate["z"]) {
-        if(myUpdatedPiece.wallkick(false)) {
-          myUpdatedPiece.rotation = (myUpdatedPiece.rotation - 1) % 4;
-        }
-    }
-
 
     // send update piece position to the server
-    const piece_obj = JSON.stringify(myUpdatedPiece);
-    socket.send(piece_obj);
+    //const piece_obj = JSON.stringify(myUpdatedPiece);
+    sendInput(keystate);
 }

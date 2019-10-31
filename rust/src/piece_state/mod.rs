@@ -2,8 +2,8 @@ use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq)]
 pub struct Pivot {
-    pub x: u8,
-    pub y:u8,
+    pub x: i8,
+    pub y: i8,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq)]

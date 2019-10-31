@@ -8,6 +8,5 @@ pub struct KeyState {
     pub counter_rot: bool,
     pub hard_drop: bool,
     pub fast_drop: bool,
-    pub frame_num: usize,
     pub player_id: usize
 }
