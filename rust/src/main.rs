@@ -24,6 +24,8 @@ use serde_json::json;
 const FRAME_MILLIS : u64 = (1000.0 / 60.0) as u64;
 const FRAME_TIME : time::Duration = time::Duration::from_millis(FRAME_MILLIS);
 
+const TIMEOUT_MILLIS : u64 = 3000;
+
 /**
  *
  * The representation of an individual client
@@ -35,7 +37,8 @@ const FRAME_TIME : time::Duration = time::Duration::from_millis(FRAME_MILLIS);
 struct Client<'a> {
     out: Sender,
     player_key: usize,
-    players: &'a Mutex<Slab<PieceState>>
+    players: &'a Mutex<Slab<PieceState>>,
+    timeout: Option<Timeout>
 }
 
 impl Handler for Client<'_> {
@@ -95,9 +98,30 @@ impl Handler for Client<'_> {
 
     //TODO: Deal with different messages if applicable
     fn on_message(&mut self, msg: Message) -> Result<()> {
-        match self.out.timeout(3_000, self.out.token()) {
-                    _ => (),
+        let player_id : usize = self.out.token().into();
+
+
+        // take() transfers ownership of the underlying data stored in self.timoeut
+        if let Some(t) = self.timeout.take() {
+            println!("cancelled existing timeout for {}", player_id);
+
+            // if cancel is successful, set we don't have a timeout until
+            // on_new_timeout is called
+            // if cancel fails, the old timeout is still active
+            match self.out.cancel(t) {
+                Ok(_) => self.timeout = None,
+                Err(_) => {},
+            };
+        }
+
+        // set a new timeout
+        println!("set new timeout for {}", player_id);
+
+        match self.out.timeout(TIMEOUT_MILLIS, self.out.token()) {
+            Ok(_) => {},
+            Err(e) => println!("Error registering new timeout: {}", e)
         };
+
         // Parse the msg as text
         if let Ok(text) = msg.into_text() {
             // Try to parse the message as a piece state
@@ -136,25 +160,12 @@ impl Handler for Client<'_> {
         // Print reason for connection loss
         let player_id : usize = self.out.token().into();
         match code {
-            CloseCode::Normal => {
-                println!("Client {} is done with the connection.", player_id);
-                // TODO: Consider error handling if appropriate
-                match self.out.timeout(3_000, self.out.token()) {
-                    _ => (),
-                };
-            }
-            CloseCode::Away => {
-                println!("Client {} is leaving the site.", player_id);
-
-                let player_id : usize = self.out.token().into();
-                println!("Client {} timed out.", player_id);
-                remove_player(player_id, self.players);
-            }
-            _ => {
-                println!("Client {} encountered an error: {}", player_id, reason);
-                remove_player(player_id, self.players);
-            }
+            CloseCode::Normal => println!("Client {} is done with the connection.", player_id),
+            CloseCode::Away => println!("Client {} is leaving the site.", player_id),
+            _ => println!("Client {} encountered an error: {:?}", player_id, code),
         }
+
+        remove_player(player_id, self.players);
     }
 
     /**
@@ -166,7 +177,14 @@ impl Handler for Client<'_> {
      *
      */
     fn on_timeout(&mut self, event: Token) -> Result<()> {
-        // Remove client from game state
+        let player_id : usize = event.into();
+
+        println!("timeout called for {}", player_id);
+
+        // close the connection, send Error close code because we shouldn't
+        // hit a timeout unless the server dies
+        // this will trigger on_close which will remove the player
+        self.out.close(CloseCode::Error).unwrap();
 
         Ok(())
     }
@@ -181,8 +199,13 @@ impl Handler for Client<'_> {
      *  //TODO: Make this actually work properly
      *
      */
-    fn on_new_timeout(&mut self, _event: Token, timeout: Timeout) -> Result<()> {
-        self.out.cancel(timeout)
+    fn on_new_timeout(&mut self, event: Token, timeout: Timeout) -> Result<()> {
+        let player_id : usize = event.into();
+
+        println!("on_new_timeout called for {}", player_id);
+
+        self.timeout = Some(timeout);
+        return Ok(());
     }
 }
 
@@ -265,7 +288,8 @@ fn main() {
         Client {
             out: out,
             player_key: 0,
-            players: &players
+            players: &players,
+            timeout: None,
         }
     };
 
