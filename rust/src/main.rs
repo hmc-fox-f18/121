@@ -24,7 +24,7 @@ use serde_json::json;
 const FRAME_MILLIS : u64 = (1000.0 / 60.0) as u64;
 const FRAME_TIME : time::Duration = time::Duration::from_millis(FRAME_MILLIS);
 
-const TIMEOUT_MILLIS : u64 = 3000;
+const TIMEOUT_MILLIS : u64 = 10000;
 
 /**
  *
@@ -93,6 +93,10 @@ impl Handler for Client<'_> {
                 "type": "init"
             });
         }
+
+        // setup ping every second
+        self.out.timeout(TIMEOUT_MILLIS, self.out.token()).unwrap();
+
         self.out.send(response.to_string())
     }
 
