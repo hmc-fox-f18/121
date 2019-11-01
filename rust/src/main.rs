@@ -145,14 +145,14 @@ impl Handler for Client<'_> {
             }
             CloseCode::Away => {
                 println!("Client {} is leaving the site.", player_id);
-                // TODO: Consider error handling if appropriate
-                match self.out.timeout(3_000, self.out.token()) {
-                    _ => (),
-                };
+
+                let player_id : usize = self.out.token().into();
+                println!("Client {} timed out.", player_id);
+                remove_player(player_id, self.players);
             }
             _ => {
                 println!("Client {} encountered an error: {}", player_id, reason);
-                remove_player(self.out.token(), self.players);
+                remove_player(player_id, self.players);
             }
         }
     }
@@ -167,9 +167,7 @@ impl Handler for Client<'_> {
      */
     fn on_timeout(&mut self, event: Token) -> Result<()> {
         // Remove client from game state
-        let player_id : usize = self.out.token().into();
-        println!("Client {} timed out.", player_id);
-        remove_player(event, self.players);
+
         Ok(())
     }
 
@@ -193,13 +191,11 @@ impl Handler for Client<'_> {
  *  Function which removes a given player from the player slab.
  *
  */
-fn remove_player(_player_key: Token,
-                    _players: &Mutex<Slab<PieceState>>) {
-    // Remove client from game state
-    //let player_id : usize = player_key.into();
-    //let mut players = players.lock().unwrap();
-    //players.remove(player_id);
-    //drop(players);
+fn remove_player(player_id: usize,
+                 players: & Mutex<Slab<PieceState>>) {
+
+    let mut players_guard = players.lock().unwrap();
+    (*players_guard).remove(player_id);
 }
 
 /**
