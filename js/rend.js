@@ -14,7 +14,7 @@ function drawPieces() {
       let [x, y, color, width, rot_shape] = piece_state.getPiece().getRenderInfo();
       ctx.fillStyle = color;
       if (piece_state.player_id == my_player_id) {
-        ctx.shadowColor = '#00ff00';
+        ctx.shadowColor = '#ffffffee';
         ctx.shadowBlur = 40;
       }
       else {

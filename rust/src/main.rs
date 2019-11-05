@@ -166,7 +166,10 @@ impl Handler for Client<'_> {
         // close the connection, send Error close code because we shouldn't
         // hit a timeout unless the server dies
         // this will trigger on_close which will remove the player
-        self.out.close(CloseCode::Error).unwrap();
+        match self.out.ping(vec![]) {
+            Ok(()) => self.out.timeout(TIMEOUT_MILLIS, self.out.token()).unwrap(),
+            _ => self.out.close(CloseCode::Error).unwrap(),
+        }
         // Note: timeouts will actually occur if the client refreshes
         // the page
         Ok(())
