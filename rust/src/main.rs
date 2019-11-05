@@ -102,24 +102,6 @@ impl Handler for Client<'_> {
 
     //TODO: Deal with different messages if applicable
     fn on_message(&mut self, msg: Message) -> Result<()> {
-        let player_id : usize = self.out.token().into();
-
-
-        // take() transfers ownership of the underlying data stored in self.timoeut
-        if let Some(t) = self.timeout.take() {
-            println!("cancelled existing timeout for {}", player_id);
-
-            // if cancel is successful, set we don't have a timeout until
-            // on_new_timeout is called
-            // if cancel fails, the old timeout is still active
-            match self.out.cancel(t) {
-                Ok(_) => self.timeout = None,
-                Err(_) => {},
-            };
-        }
-
-        // set a new timeout
-        println!("set new timeout for {}", player_id);
 
         match self.out.timeout(TIMEOUT_MILLIS, self.out.token()) {
             Ok(_) => {},
@@ -160,7 +142,7 @@ impl Handler for Client<'_> {
      * TODO: Add more complex behavior for a more seamless tetris game
      *
      */
-    fn on_close(&mut self, code: CloseCode, reason: &str) {
+    fn on_close(&mut self, code: CloseCode, _reason: &str) {
         // Print reason for connection loss
         let player_id : usize = self.out.token().into();
         match code {
@@ -180,16 +162,13 @@ impl Handler for Client<'_> {
      *  from the game state.
      *
      */
-    fn on_timeout(&mut self, event: Token) -> Result<()> {
-        let player_id : usize = event.into();
-
-        println!("timeout called for {}", player_id);
-
+    fn on_timeout(&mut self, _event: Token) -> Result<()> {
         // close the connection, send Error close code because we shouldn't
         // hit a timeout unless the server dies
         // this will trigger on_close which will remove the player
         self.out.close(CloseCode::Error).unwrap();
-
+        // Note: timeouts will actually occur if the client refreshes
+        // the page
         Ok(())
     }
 
@@ -206,7 +185,16 @@ impl Handler for Client<'_> {
     fn on_new_timeout(&mut self, event: Token, timeout: Timeout) -> Result<()> {
         let player_id : usize = event.into();
 
-        println!("on_new_timeout called for {}", player_id);
+        // take() transfers ownership of the underlying data stored in self.timeout
+        if let Some(t) = self.timeout.take() {
+            // if cancel is successful, set we don't have a timeout until
+            // on_new_timeout is called
+            // if cancel fails, the old timeout is still active
+            match self.out.cancel(t) {
+                Ok(_) => self.timeout = None,
+                Err(_) => {},
+            };
+        }
 
         self.timeout = Some(timeout);
         return Ok(());

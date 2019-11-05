@@ -57,7 +57,7 @@ class Piece {
             return [b1, b2, b3, b4, b5, b6, b7, b8, b9];
         }
         else {
-            let [b4, b8, b12, b16, b3, b7, b11, b15, b2, b6, b10, b14, b1, b5, b9, b13] = this.shape;
+            let [b13, b9, b5, b1, b14, b10, b6, b2, b15, b11, b7, b3, b16, b12, b8, b4] = this.shape;
             return [b1, b2, b3, b4, b5, b6, b7, b8, b9, b10, b11, b12, b13, b14, b15, b16];
         }
     }
@@ -71,7 +71,7 @@ class Piece {
             return [b1, b2, b3, b4, b5, b6, b7, b8, b9];
         }
         else {
-            let [b13, b9, b5, b1, b14, b10, b6, b2, b15, b11, b7, b3, b16, b12, b8, b4] = this.shape;
+            let [b4, b8, b12, b16, b3, b7, b11, b15, b2, b6, b10, b14, b1, b5, b9, b13] = this.shape;
             return [b1, b2, b3, b4, b5, b6, b7, b8, b9, b10, b11, b12, b13, b14, b15, b16];
         }
     }
