@@ -10,10 +10,39 @@ use std::convert::TryInto;
 const PIECE_Z : [bool ; 9] = [ true, true, false, false, true, true, false, false, false]; //0
 const PIECE_S : [bool ; 9] = [ false, true, true, true, true, false, false, false, false]; //1
 const PIECE_J : [bool ; 9] = [ true, false, false, true, true, true, false, false, false]; //2
-const PIECE_R : [bool ; 9] = [ false, false, true, true, true, true, false, false, false]; //3
+const PIECE_L : [bool ; 9] = [ false, false, true, true, true, true, false, false, false]; //3
 const PIECE_T : [bool ; 9] = [ false, true, false, true, true, true, false, false, false]; //4
 const PIECE_I : [bool ; 16] = [ false, false, false, false, true, true, true, true, false, false, false, false, false, false, false, false]; //5
 const PIECE_O : [bool ; 16] = [ false, false, false, false, false, true, true, false, false, true, true, false, false, false, false, false]; //6
+
+const X_KICKS : [ [i8 ; 8] ; 4] = [
+                                    [-1, 1, 1, 1, -1, 1, -1, -1],
+                                    [-1, 1, 1, 1, -1, 1, -1, -1],
+                                    [ 0, 0, 0, 0, 0, 0, 0, 0],
+                                    [-1, 1, 1, 1, -1, 1, -1, -1]
+                                ];
+
+const Y_KICKS : [ [i8 ; 8] ; 4] = [
+                                    [ 0, 0, 0, 0, 0, 0, 0, 0],
+                                    [ 1, 1, -1, -1, 1, 1, -1, -1],
+                                    [-2, -2, 2, 2, -2, -2, 2, 2],
+                                    [-2, -2, 2, 2, -2, -2, 2, 2]
+                                ];
+
+const I_BLOCK_X_KICKS : [ [i8 ; 8] ; 4] = [
+                                    [-2, -1, 2, -1, 1, 2, -2, 1],
+                                    [1, 2, -1, 2, -2, -1, 1, -2],
+                                    [-2, -1, 2, -1, 1, 2, -2, 1],
+                                    [1, 2, -1, 2, -2, -1, 1, -2]
+                                ];
+
+const I_BLOCK_Y_KICKS : [ [i8 ; 8] ; 4] = [
+                                    [ 0, 0, 0, 0, 0, 0, 0, 0],
+                                    [ 0, 0, 0, 0, 0, 0, 0, 0],
+                                    [-1, 2, 1, 2, -2, 1, -1, -2],
+                                    [2, -1, -2, -1, 1, -2, 2, 1]
+                                ];
+
 
 const ROT_LIMIT : u8 = 4;
 const BOARD_WIDTH : i8 = 20;
@@ -42,20 +71,26 @@ fn apply_input(player_input : &KeyState,
         new_state.pivot.x += 1;
     }
     // Rotate clockwise
+    let mut rotated = false;
+    let mut clockwise = false;
     if player_input.rot {
+        clockwise = true;
+        rotated = !rotated;
         new_state.rotation = (new_state.rotation + 1) % ROT_LIMIT;
     }
     // Rotate counter-clockwise
     if player_input.counter_rot {
-        // Wrap around
-        if new_state.rotation == 0 {
-            new_state.rotation = ROT_LIMIT - 1;
-        }
-        else {
-            new_state.rotation -= 1;
-        }
+        rotated = !rotated;
+        new_state.rotation = (ROT_LIMIT + new_state.rotation - 1)
+                                % ROT_LIMIT;
     }
-    return new_state;
+    // Only do wallkick calculations when there is a net rotation
+    if rotated {
+        return wallkick(&mut new_state, clockwise, players);
+    }
+    else {
+        return new_state;
+    }
 }
 /**
  *
@@ -85,7 +120,7 @@ fn read_block(piece : &[bool], x : i8, y : i8, rot : u8) -> bool {
         }
         // Rotated clockwise, goes down with x, left with y
         1 => {
-            let index = x * width + (width - (y + 1) );
+            let index = (width - (x + 1) ) * width + y;
             return piece[index as usize];
         }
         // 180 degrees, like unrotated but backwards
@@ -95,7 +130,7 @@ fn read_block(piece : &[bool], x : i8, y : i8, rot : u8) -> bool {
         }
         // Rotated counter-clockwise, goes up with x, right with y
         3 => {
-            let index = (width - (x + 1) ) * width + y;
+            let index = x * width + (width - (y + 1) );
             return piece[index as usize];
         }
         // Invalid Rotation
@@ -108,7 +143,7 @@ fn get_shape(shape_num : u8) -> &'static [bool] {
         0 => &PIECE_Z,
         1 => &PIECE_S,
         2 => &PIECE_J,
-        3 => &PIECE_R,
+        3 => &PIECE_L,
         4 => &PIECE_T,
         5 => &PIECE_I,
         6 => &PIECE_O,
@@ -116,21 +151,24 @@ fn get_shape(shape_num : u8) -> &'static [bool] {
     }
 }
 
-fn collision(piece : &PieceState, players_slab : &mut Slab<PieceState>) -> bool {
+fn collision(piece : &PieceState, players_slab : &mut Slab<PieceState>)
+                -> bool {
     // Check if in bounds
     let this_shape = get_shape(piece.shape);
     let width = if this_shape.len() == 9 {3} else {4};
     let this_origin = piece.pivot;
-    for x in 0..width {
-        for y in 0..width {
+
+    for y in 0..width {
+        for x in 0..width {
             let abs_x = x + this_origin.x;
             let abs_y = y + this_origin.y;
             if read_block(this_shape, x, y, piece.rotation) &&
-                    (abs_x > BOARD_WIDTH || abs_x < 0 || abs_y < 0) {
+                    (abs_x >= BOARD_WIDTH || abs_x < 0 || abs_y < 0) {
                 return true;
             }
         }
     }
+
 
     // Check if collides with other players
     let players : Vec<&mut PieceState> = players_slab
@@ -157,3 +195,42 @@ fn collision(piece : &PieceState, players_slab : &mut Slab<PieceState>) -> bool 
     // TODO: add wallkicks
     return false;
 }
+
+fn wallkick(mut new_state : &mut PieceState, clockwise : bool,
+                        players : &mut Slab<PieceState>) -> PieceState {
+    // No Change, Test 1
+    if !collision(&mut new_state, players) {
+        return *new_state;
+    }
+    let prev_rotation = if clockwise {
+            (ROT_LIMIT + new_state.rotation - 1) % ROT_LIMIT
+        }
+        else {
+            (new_state.rotation + 1) % ROT_LIMIT
+        };
+
+    for i in 0..4 {
+        let index : usize = (2 * prev_rotation +
+                                (if clockwise {0} else {1})) as usize;
+        let x_test;
+        let y_test;
+        if new_state.shape < 5 {
+            x_test = X_KICKS[i][index];
+            y_test = Y_KICKS[i][index];
+        }
+        else {
+            x_test = I_BLOCK_X_KICKS[i][index];
+            y_test = I_BLOCK_Y_KICKS[i][index];
+        }
+        new_state.pivot.x += x_test;
+        new_state.pivot.y += y_test;
+        if !collision(&mut new_state, players) {
+            return *new_state;
+        }
+        new_state.pivot.x -= x_test;
+        new_state.pivot.y -= y_test;
+    }
+    // TODO: Prevent from re-checking collision afterwards
+    return *new_state;
+}
+
