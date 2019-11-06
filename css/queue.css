@@ -1,0 +1,55 @@
+#queue {
+  width: 200px;
+}
+
+.position {
+  float: left;
+  margin-right: 10px;
+  vertical-align: center;
+}
+
+td {
+  vertical-align: top;
+}
+
+.tetris-block div {
+  width: 20px;
+  height: 20px;
+}
+
+.tetris-block {
+  margin: 10px;
+  border-spacing: 0px;
+}
+
+.tetris-block td {
+  padding: 0px;
+}
+
+.i-block div {
+  background-color: lightblue;
+}
+
+.j-block div {
+  background-color: blue;
+}
+
+.l-block div {
+  background-color: orange;
+}
+
+.o-block div {
+  background-color: yellow;
+}
+
+.s-block div {
+  background-color: lightgreen;
+}
+
+.t-block div {
+  background-color: purple;
+}
+
+.z-block div {
+  background-color: red;
+}

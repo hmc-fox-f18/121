@@ -28,7 +28,7 @@ var keystate = [];
 var socket;
 var socketOpen = false;
 
-var game_state = new GameState([]);
+var game_state = new GameState([], [], []);
 // Actual Code
 
 /**

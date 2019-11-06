@@ -51,4 +51,5 @@ function initGrid() {
 function draw_frame() {
     clearBoard();
     drawPieces();
+    updateQueue();
 }
