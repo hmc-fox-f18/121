@@ -58,12 +58,12 @@ class GameState {
     });
 
 
-    let piece_queue = [];
+    let piece_queue = [0, 4, 5, 6, 1];
     if (server_state.hasOwnProperty('piece_queue')) {
       piece_queue = [...server_state.piece_queue]; // clone an array ES6-style
     }
 
-    let player_queue = [];
+    let player_queue = [0, 1, 2, 3];
     if (server_state.hasOwnProperty('player_queue')) {
       player_queue = [...server_state.piece_queue];
     }

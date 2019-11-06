@@ -1,6 +1,29 @@
+#queue {
+  width: 200px;
+}
+
+.position {
+  float: left;
+  margin-right: 10px;
+  vertical-align: center;
+}
+
+td {
+  vertical-align: top;
+}
+
 .tetris-block div {
   width: 20px;
   height: 20px;
+}
+
+.tetris-block {
+  margin: 10px;
+  border-spacing: 0px;
+}
+
+.tetris-block td {
+  padding: 0px;
 }
 
 .i-block div {

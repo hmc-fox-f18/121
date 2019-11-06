@@ -1,18 +1,18 @@
 let IBLOCK_HTML = `<table class='tetris-block i-block'>
-   <tr>
-     <td><div></td>
-     <th><div></th>
-      <th><div></th>
-      <th><div></th>
-   </tr>
+  <tr>
+    <td><div></td>
+    <td><div></td>
+    <td><div></td>
+    <td><div></td>
+  </tr>
 </table>`;
 
 let JBLOCK_HTML = `<table class='tetris-block j-block'>
    <tr>
-     <th><div></th>
+     <td><div></td>
    </tr>
    <tr>
-     <th><div></th>
+     <td><div></td>
      <td><div></td>
      <td><div></td>
    </tr>
@@ -20,12 +20,12 @@ let JBLOCK_HTML = `<table class='tetris-block j-block'>
 
 let LBLOCK_HTML = `<table class='tetris-block l-block'>
    <tr>
-     <th></th>
-     <th></th>
-     <th><div></th>
+     <td></td>
+     <td></td>
+     <td><div></td>
    </tr>
    <tr>
-     <th><div></th>
+     <td><div></td>
      <td><div></td>
      <td><div></td>
    </tr>
@@ -33,34 +33,34 @@ let LBLOCK_HTML = `<table class='tetris-block l-block'>
 
 let OBLOCK_HTML = `<table class='tetris-block o-block'>
    <tr>
-     <th><div></th>
+     <td><div></td>
      <td><div></td>
    </tr>
    <tr>
-     <th><div></th>
+     <td><div></td>
      <td><div></td>
    </tr>
 </table>`;
 
 let SBLOCK_HTML = `<table class='tetris-block s-block'>
    <tr>
-     <th></th>
-     <th><div></th>
+     <td></td>
+     <td><div></td>
      <td><div></td>
    </tr>
    <tr>
-     <th><div></th>
+     <td><div></td>
      <td><div></td>
    </tr>
 </table>`;
 
 let TBLOCK_HTML = `<table class='tetris-block t-block'>
    <tr>
-     <th></th>
-     <th><div></th>
+     <td></td>
+     <td><div></td>
    </tr>
    <tr>
-     <th><div></th>
+     <td><div></td>
      <td><div></td>
      <td><div></td>
    </tr>
@@ -68,11 +68,11 @@ let TBLOCK_HTML = `<table class='tetris-block t-block'>
 
 let ZBLOCK_HTML = `<table class='tetris-block z-block'>
    <tr>
-     <th><div></th>
-     <th><div></th>
+     <td><div></td>
+     <td><div></td>
    </tr>
    <tr>
-     <th></th>
+     <td></td>
      <td><div></td>
      <td><div></td>
    </tr>
@@ -90,17 +90,15 @@ function getPieceHTML(shape) {
   }
 }
 
+// how many pieces can be playing at one time
 const MAX_ACTIVE_PIECES = 1;
-
-// show the first three pieces
-const PIECE_QUEUE_LENGTH = 3;
 
 // returns -1 if player isn't in queue, else returns 0 or greater indicating
 // position in queue
 function getMyQueuePosition() {
   for (let i = 0; i < game_state.player_queue.length; i+=1) {
-    if (game_state.player_queue[i] == my_player_id && i >= MAX_ACTIVE_PIECES) {
-      return i - MAX_ACTIVE_PIECES;
+    if (game_state.player_queue[i] == my_player_id) {
+      return i;
     }
   }
 
@@ -109,25 +107,38 @@ function getMyQueuePosition() {
 
 // TODO: fill this in.
 function getMyPieceShape() {
-  return 2;
+  for (let i = 0; i < game_state.player_queue.length; i+=1) {
+    if (game_state.player_queue[i] == my_player_id) {
+      return i;
+    }
+  }
+
+  return -1;
 }
 
 function drawMyPiece() {
   let queue_position = getMyQueuePosition();
-  let my_piece_shape = getMyPieceShape();
 
-  if (queue_position > PIECE_QUEUE_LENGTH) {
-    $("#my-piece-shape").html(getPieceHTML(my_piece_shape))
-    $("#my-piece-position").html(queue_position);
-    $("#my-piece").removeClass("hidden");
+  console.log(queue_position);
+
+  // if my piece is in the queue
+  if (queue_position != -1) {
+    $("#my-piece .shape").html(getPieceHTML(getMyPieceShape()));
+    $("#my-piece .position").html("#" + queue_position);
   }
-  else {
-    $("#my-piece").addClass("hidden");
+}
+
+function drawBlockQueue() {
+  let children = $("#block-queue").children();
+
+  for (let i = 0; i < children.length; i++) {
+    $(children[i]).find(".shape").html(getPieceHTML(game_state.piece_queue[i]));
   }
 }
 
 function updateQueue() {
-
+  drawMyPiece();
+  drawBlockQueue();
 
   console.log("update queue");
 }

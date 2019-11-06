@@ -17,10 +17,40 @@
 </head>
 
 <body onload="init();">
-   <canvas id="board" width="400" height="400"></canvas>
-   
-   <div id='my-piece'>
-     <div id='my-piece-shape'></div>
-     <div>#<span id='my-piece-position'></span></div>
-   </div>
+
+  <table>
+    <tr>
+      <td>
+        <canvas id="board" width="400" height="400"></canvas>
+      </td>
+      <td>
+        <div id='queue'>
+          <div id='block-queue'>
+            <p>Queue</p>
+            <div>
+              <div class='position'>#1</div>
+              <div class='shape'></div>
+
+            </div>
+            <div>
+              <div class='position'>#2</div>
+              <div class='shape'></div>
+
+            </div>
+            <div>
+              <div class='position'>#3</div>
+              <div class='shape'></div>
+            </div>
+          </div>
+
+          <div id='my-piece'>
+            <p>You</p>
+            <div class='position'>#</div>
+            <div class='shape'></div>
+          </div>
+        </div>
+      </td>
+    </tr>
+  </table>
+
 </body>
