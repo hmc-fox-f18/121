@@ -11,6 +11,8 @@ use crate::piece_state::{PieceState, Pivot};
 use crate::input::{KeyState};
 use crate::tetris::update_state;
 
+use std::time::{SystemTime, UNIX_EPOCH};
+
 use rand::Rng;
 use std::sync::{Arc, Mutex};
 use std::{time, thread};
@@ -25,6 +27,9 @@ const FRAME_MILLIS : u64 = (1000.0 / 60.0) as u64;
 const FRAME_TIME : time::Duration = time::Duration::from_millis(FRAME_MILLIS);
 
 const TIMEOUT_MILLIS : u64 = 10000;
+
+// how long it takes between when pieces move down 1 square
+const SHIFT_PERIOD_MILLIS : u128 = 1000;
 
 /**
  *
@@ -228,6 +233,18 @@ pub fn next_piece() -> u8 {
     return rng.gen_range(0, 7);
 }
 
+fn millis_since_epoch() -> u128 {
+    let start = SystemTime::now();
+    let since_the_epoch = start.duration_since(UNIX_EPOCH)
+        .expect("Time went backwards");
+
+    return since_the_epoch.as_millis();
+}
+
+fn shift_pieces(players : &mut Slab<PieceState>) {
+    println!("shift pieces ;)");
+}
+
 /**
  *
  *  Runs the actual game logic at regular intervals, then sends out a
@@ -236,8 +253,19 @@ pub fn next_piece() -> u8 {
  */
 fn game_frame(broadcaster: Sender,
                 thread_players: Arc<Mutex<Slab<PieceState>>>) {
+
+    // the time when we last shifted the pieces down
+    let mut last_shift_time : u128 = 0;
+
     loop {
-        let players = thread_players.lock().unwrap();
+        let mut players = thread_players.lock().unwrap();
+
+        // drop the pieces 1 square if they need to be dropped
+        let current_time = millis_since_epoch();
+        if current_time - last_shift_time > SHIFT_PERIOD_MILLIS {
+            shift_pieces(&mut players);
+            last_shift_time = current_time;
+        }
 
         // Parse actual player states out of the list to exclude
         // empty slots in Slab
