@@ -9,7 +9,7 @@ mod tests;
 
 use crate::piece_state::{PieceState, Pivot};
 use crate::input::{KeyState};
-use crate::tetris::update_state;
+use crate::tetris::{update_state, BOARD_WIDTH};
 
 use std::time::{SystemTime, UNIX_EPOCH};
 
@@ -190,9 +190,7 @@ impl Handler for Client<'_> {
      *  //TODO: Make this actually work properly
      *
      */
-    fn on_new_timeout(&mut self, event: Token, timeout: Timeout) -> Result<()> {
-        let player_id : usize = event.into();
-
+    fn on_new_timeout(&mut self, _event: Token, timeout: Timeout) -> Result<()> {
         // take() transfers ownership of the underlying data stored in self.timeout
         if let Some(t) = self.timeout.take() {
             // if cancel is successful, set we don't have a timeout until
@@ -212,6 +210,8 @@ impl Handler for Client<'_> {
 /**
  *
  *  Function which removes a given player from the player slab.
+ *  This removes the player from the entire game, not just the
+ *  board.
  *
  */
 fn remove_player(player_id: usize,
@@ -219,6 +219,15 @@ fn remove_player(player_id: usize,
 
     let mut players_guard = players.lock().unwrap();
     (*players_guard).remove(player_id);
+}
+
+/**
+ *
+ *  Removes a player from the board and puts their piece in the queue.
+ *
+ */
+fn remove_from_play(player_id : usize) {
+    println!("remove_from_play called on {}", player_id);
 }
 
 /**
@@ -233,6 +242,7 @@ pub fn next_piece() -> u8 {
     return rng.gen_range(0, 7);
 }
 
+
 fn millis_since_epoch() -> u128 {
     let start = SystemTime::now();
     let since_the_epoch = start.duration_since(UNIX_EPOCH)
@@ -242,7 +252,23 @@ fn millis_since_epoch() -> u128 {
 }
 
 fn shift_pieces(players : &mut Slab<PieceState>) {
-    println!("shift pieces ;)");
+    let mut player_ids_to_remove : Vec<usize> = vec![];
+
+    for (player_id, mut player) in players.iter_mut() {
+        player.pivot.y += 1;
+
+        // If piece is off of the screen, remove it from play
+        // We do this later, not in the iterator, since removing
+        // elements while iterating is not safe.
+        if player.pivot.y >= BOARD_WIDTH {
+            player_ids_to_remove.push(player_id);
+        }
+    }
+
+    // actually remove players from the board
+    for player_id in player_ids_to_remove {
+        remove_from_play(player_id);
+    }
 }
 
 /**

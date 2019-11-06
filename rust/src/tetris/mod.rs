@@ -45,7 +45,7 @@ const I_BLOCK_Y_KICKS : [ [i8 ; 8] ; 4] = [
 
 
 const ROT_LIMIT : u8 = 4;
-const BOARD_WIDTH : i8 = 20;
+pub const BOARD_WIDTH : i8 = 20;
 
 pub fn update_state(players : &mut Slab<PieceState>, player_input : &KeyState) {
     let new_state = apply_input(player_input, players);
@@ -233,4 +233,3 @@ fn wallkick(mut new_state : &mut PieceState, clockwise : bool,
     // TODO: Prevent from re-checking collision afterwards
     return *new_state;
 }
-
