@@ -122,7 +122,9 @@ function drawMyPiece() {
   // if my piece is in the queue
   if (queue_position != -1) {
     $("#my-piece .shape").html(getPieceHTML(getMyPieceShape()));
-    $("#my-piece .position").html("#" + queue_position);
+
+    // add 1 to convert from zero-indexed to 1-indexed
+    $("#my-piece .position").html("#" + (queue_position + 1));
   }
 }
 

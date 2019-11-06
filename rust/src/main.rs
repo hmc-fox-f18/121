@@ -9,7 +9,9 @@ mod tests;
 
 use crate::piece_state::{PieceState, Pivot};
 use crate::input::{KeyState};
-use crate::tetris::update_state;
+use crate::tetris::{update_state, BOARD_WIDTH};
+
+use std::time::{SystemTime, UNIX_EPOCH};
 
 use rand::Rng;
 use std::sync::{Arc, Mutex};
@@ -25,6 +27,9 @@ const FRAME_MILLIS : u64 = (1000.0 / 60.0) as u64;
 const FRAME_TIME : time::Duration = time::Duration::from_millis(FRAME_MILLIS);
 
 const TIMEOUT_MILLIS : u64 = 10000;
+
+// how long it takes between when pieces move down 1 square
+const SHIFT_PERIOD_MILLIS : u128 = 1000;
 
 /**
  *
@@ -185,9 +190,7 @@ impl Handler for Client<'_> {
      *  //TODO: Make this actually work properly
      *
      */
-    fn on_new_timeout(&mut self, event: Token, timeout: Timeout) -> Result<()> {
-        let player_id : usize = event.into();
-
+    fn on_new_timeout(&mut self, _event: Token, timeout: Timeout) -> Result<()> {
         // take() transfers ownership of the underlying data stored in self.timeout
         if let Some(t) = self.timeout.take() {
             // if cancel is successful, set we don't have a timeout until
@@ -207,6 +210,8 @@ impl Handler for Client<'_> {
 /**
  *
  *  Function which removes a given player from the player slab.
+ *  This removes the player from the entire game, not just the
+ *  board.
  *
  */
 fn remove_player(player_id: usize,
@@ -214,6 +219,15 @@ fn remove_player(player_id: usize,
 
     let mut players_guard = players.lock().unwrap();
     (*players_guard).remove(player_id);
+}
+
+/**
+ *
+ *  Removes a player from the board and puts their piece in the queue.
+ *
+ */
+fn remove_from_play(player_id : usize) {
+    println!("remove_from_play called on {}", player_id);
 }
 
 /**
@@ -228,6 +242,35 @@ pub fn next_piece() -> u8 {
     return rng.gen_range(0, 7);
 }
 
+
+fn millis_since_epoch() -> u128 {
+    let start = SystemTime::now();
+    let since_the_epoch = start.duration_since(UNIX_EPOCH)
+        .expect("Time went backwards");
+
+    return since_the_epoch.as_millis();
+}
+
+fn shift_pieces(players : &mut Slab<PieceState>) {
+    let mut player_ids_to_remove : Vec<usize> = vec![];
+
+    for (player_id, mut player) in players.iter_mut() {
+        player.pivot.y += 1;
+
+        // If piece is off of the screen, remove it from play
+        // We do this later, not in the iterator, since removing
+        // elements while iterating is not safe.
+        if player.pivot.y >= BOARD_WIDTH {
+            player_ids_to_remove.push(player_id);
+        }
+    }
+
+    // actually remove players from the board
+    for player_id in player_ids_to_remove {
+        remove_from_play(player_id);
+    }
+}
+
 /**
  *
  *  Runs the actual game logic at regular intervals, then sends out a
@@ -236,8 +279,19 @@ pub fn next_piece() -> u8 {
  */
 fn game_frame(broadcaster: Sender,
                 thread_players: Arc<Mutex<Slab<PieceState>>>) {
+
+    // the time when we last shifted the pieces down
+    let mut last_shift_time : u128 = 0;
+
     loop {
-        let players = thread_players.lock().unwrap();
+        let mut players = thread_players.lock().unwrap();
+
+        // drop the pieces 1 square if they need to be dropped
+        let current_time = millis_since_epoch();
+        if current_time - last_shift_time > SHIFT_PERIOD_MILLIS {
+            shift_pieces(&mut players);
+            last_shift_time = current_time;
+        }
 
         // Parse actual player states out of the list to exclude
         // empty slots in Slab
