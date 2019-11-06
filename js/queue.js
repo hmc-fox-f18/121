@@ -90,8 +90,6 @@ function getPieceHTML(shape) {
   }
 }
 
-// how many pieces can be playing at one time
-const MAX_ACTIVE_PIECES = 1;
 
 // returns -1 if player isn't in queue, else returns 0 or greater indicating
 // position in queue
@@ -116,10 +114,10 @@ function getMyPieceShape() {
   return -1;
 }
 
+// draws the my-piece section which shows when my own
+// piece will be put into the game
 function drawMyPiece() {
   let queue_position = getMyQueuePosition();
-
-  console.log(queue_position);
 
   // if my piece is in the queue
   if (queue_position != -1) {
@@ -128,6 +126,8 @@ function drawMyPiece() {
   }
 }
 
+// draws the block queue which shows what the next three
+// blocks will be
 function drawBlockQueue() {
   let children = $("#block-queue").children();
 
@@ -139,10 +139,4 @@ function drawBlockQueue() {
 function updateQueue() {
   drawMyPiece();
   drawBlockQueue();
-
-  console.log("update queue");
-}
-
-function initQueue() {
-
 }

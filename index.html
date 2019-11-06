@@ -17,14 +17,17 @@
 </head>
 
 <body onload="init();">
-
   <table>
     <tr>
+      <!-- canvas that the game is played on -->
       <td>
         <canvas id="board" width="400" height="400"></canvas>
       </td>
+
       <td>
         <div id='queue'>
+
+          <!-- stores the next three blocks that will appear in game -->
           <div id='block-queue'>
             <p>Queue</p>
             <div>
@@ -43,6 +46,7 @@
             </div>
           </div>
 
+          <!-- says when my piece will come up (eg. #1 or #21) -->
           <div id='my-piece'>
             <p>You</p>
             <div class='position'>#</div>

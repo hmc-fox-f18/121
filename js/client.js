@@ -63,7 +63,6 @@ function init() {
       initGrid();
       clearBoard();
       drawPieces();
-      initQueue();
       window.requestAnimationFrame(handleFrame);
     });
 }
