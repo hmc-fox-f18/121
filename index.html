@@ -4,9 +4,23 @@
     <script src="js/rend.js"></script>
     <script src="js/network.js"></script>
     <script src="js/client.js"></script>
+    <script src="js/queue.js"></script>
+
+    <script
+      src="https://code.jquery.com/jquery-3.4.1.min.js"
+      integrity="sha256-CSXorXvZcTkaix6Yvo6HppcZGetbYMGWSFlBw8HfCJo="
+      crossorigin="anonymous"></script>
+
     <meta charset="utf-8">
+
+    <link rel="stylesheet" href="css/queue.css">
 </head>
 
 <body onload="init();">
    <canvas id="board" width="400" height="400"></canvas>
+   
+   <div id='my-piece'>
+     <div id='my-piece-shape'></div>
+     <div>#<span id='my-piece-position'></span></div>
+   </div>
 </body>

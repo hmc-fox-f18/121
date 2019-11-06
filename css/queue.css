@@ -1,0 +1,32 @@
+.tetris-block div {
+  width: 20px;
+  height: 20px;
+}
+
+.i-block div {
+  background-color: lightblue;
+}
+
+.j-block div {
+  background-color: blue;
+}
+
+.l-block div {
+  background-color: orange;
+}
+
+.o-block div {
+  background-color: yellow;
+}
+
+.s-block div {
+  background-color: lightgreen;
+}
+
+.t-block div {
+  background-color: purple;
+}
+
+.z-block div {
+  background-color: red;
+}

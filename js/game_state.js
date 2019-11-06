@@ -36,10 +36,14 @@ class PieceState {
   }
 }
 
+
+
 // TODO: implement this within our code
 class GameState {
-  constructor(piece_states) {
+  constructor(piece_states, piece_queue, player_queue) {
     this.piece_states = piece_states;
+    this.piece_queue = piece_queue;
+    this.player_queue = player_queue;
   }
 
   static fromJson(json) {
@@ -53,6 +57,17 @@ class GameState {
         x.player_id);
     });
 
-    return new GameState(piece_states);
+
+    let piece_queue = [];
+    if (server_state.hasOwnProperty('piece_queue')) {
+      piece_queue = [...server_state.piece_queue]; // clone an array ES6-style
+    }
+
+    let player_queue = [];
+    if (server_state.hasOwnProperty('player_queue')) {
+      player_queue = [...server_state.piece_queue];
+    }
+
+    return new GameState(piece_states, piece_queue, player_queue);
   }
 }

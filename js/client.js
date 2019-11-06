@@ -28,7 +28,7 @@ var keystate = [];
 var socket;
 var socketOpen = false;
 
-var game_state = new GameState([]);
+var game_state = new GameState([], [], []);
 // Actual Code
 
 /**
@@ -63,6 +63,7 @@ function init() {
       initGrid();
       clearBoard();
       drawPieces();
+      initQueue();
       window.requestAnimationFrame(handleFrame);
     });
 }
