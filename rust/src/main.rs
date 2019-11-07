@@ -2,14 +2,15 @@ extern crate ws;
 extern crate rand;
 extern crate slab;
 
+use std::collections::HashMap;
 mod piece_state;
 mod input;
 mod tetris;
 mod tests;
 
-use crate::piece_state::{PieceState, Pivot};
+use crate::piece_state::{PieceState, Pivot, BlockState};
 use crate::input::{KeyState};
-use crate::tetris::{update_state, BOARD_WIDTH};
+use crate::tetris::{update_state, BOARD_WIDTH, fallen_blocks_collision, read_block, get_shape};
 
 use std::time::{SystemTime, UNIX_EPOCH};
 
@@ -156,7 +157,8 @@ impl Handler for Client<'_> {
             _ => println!("Client {} encountered an error: {:?}", player_id, code),
         }
 
-        remove_player(player_id, self.players);
+        let mut players = self.players.lock().unwrap();
+        remove_player(player_id, &mut *players);
     }
 
     /**
@@ -215,10 +217,8 @@ impl Handler for Client<'_> {
  *
  */
 fn remove_player(player_id: usize,
-                 players: & Mutex<Slab<PieceState>>) {
-
-    let mut players_guard = players.lock().unwrap();
-    (*players_guard).remove(player_id);
+                 players: &mut Slab<PieceState>) {
+    players.remove(player_id);
 }
 
 /**
@@ -226,7 +226,10 @@ fn remove_player(player_id: usize,
  *  Removes a player from the board and puts their piece in the queue.
  *
  */
-fn remove_from_play(player_id : usize) {
+fn remove_from_play(player_id : usize, players: &mut Slab<PieceState>) {
+    // this is temporary, change it
+    // remove_player(player_id, players);
+
     println!("remove_from_play called on {}", player_id);
 }
 
@@ -251,25 +254,62 @@ fn millis_since_epoch() -> u128 {
     return since_the_epoch.as_millis();
 }
 
-fn shift_pieces(players : &mut Slab<PieceState>) {
+fn add_fallen_blocks(piece : &PieceState, fallen_blocks : &mut HashMap<Pivot, u8>) {
+    let this_shape = get_shape(piece.shape);
+    let width = if this_shape.len() == 9 {3} else {4};
+    let this_origin = piece.pivot;
+
+    // iterate through all of the blocks that make up the
+    // current piece and add them to fallen_blocks.
+    for y in 0..width {
+        for x in 0..width {
+            let abs_x = x + this_origin.x;
+            let abs_y = y + this_origin.y;
+
+            if read_block(this_shape, x, y, piece.rotation) {
+                let pivot = Pivot {
+                    x: abs_x,
+                    y: abs_y,
+                };
+
+                fallen_blocks.insert(pivot, piece.shape);
+            }
+        }
+    }
+}
+
+fn shift_pieces(players : &mut Slab<PieceState>, fallen_blocks : &mut HashMap<Pivot, u8>) {
+
     let mut player_ids_to_remove : Vec<usize> = vec![];
 
     for (player_id, mut player) in players.iter_mut() {
-        player.pivot.y += 1;
+        // make a copy which we shift down and check for collision
+        let mut player_copy = player.clone();
+        player_copy.pivot.y += 1;
 
         // If piece is off of the screen, remove it from play
         // We do this later, not in the iterator, since removing
         // elements while iterating is not safe.
-        if player.pivot.y >= BOARD_WIDTH {
+
+        if fallen_blocks_collision(&player_copy, fallen_blocks) {
+            add_fallen_blocks(player, fallen_blocks);
+
+            // let t = json!({"fallen_blocks": fallen_blocks});
+            // println!("{}", t);
+
             player_ids_to_remove.push(player_id);
+        } else {
+            player.pivot.y += 1;
         }
     }
 
     // actually remove players from the board
     for player_id in player_ids_to_remove {
-        remove_from_play(player_id);
+        remove_from_play(player_id, players);
     }
 }
+
+
 
 /**
  *
@@ -283,13 +323,19 @@ fn game_frame(broadcaster: Sender,
     // the time when we last shifted the pieces down
     let mut last_shift_time : u128 = 0;
 
+    // stores PieceStates for all of the pieces that have
+    // fallen to the bottom of the screen
+    let mut fallen_blocks = HashMap::new();
+
     loop {
         let mut players = thread_players.lock().unwrap();
+
 
         // drop the pieces 1 square if they need to be dropped
         let current_time = millis_since_epoch();
         if current_time - last_shift_time > SHIFT_PERIOD_MILLIS {
-            shift_pieces(&mut players);
+            // check to make sure shift works
+            shift_pieces(&mut players, &mut fallen_blocks);
             last_shift_time = current_time;
         }
 
@@ -300,11 +346,27 @@ fn game_frame(broadcaster: Sender,
                             .map(|(_key, val)| val)
                             .collect();
 
+        let fallen_blocks_list : Vec<BlockState> = fallen_blocks.iter().map(|(pivot, shape)| {
+            return BlockState {
+                position: pivot.clone(),
+                original_shape: *shape,
+            };
+        }).collect();
+
+        // // for debugging
+        // print!("blocks: ");
+        // for block in fallen_blocks_list.iter() {
+        //     print!("({}, {}), ", block.position.x, block.position.y);
+        // }
+        // print!("\n");
+
         let response = json!({
             "piece_states": states,
-            "type": "gameState"
+            "type": "gameState",
+            "fallen_blocks": fallen_blocks_list,
         });
-        //println!("{:?}", states);
+
+
         // Unlock players so main thread can take in player updates
         drop(players);
         // Send game state update to all connected clients
