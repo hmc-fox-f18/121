@@ -203,7 +203,7 @@ pub fn fallen_blocks_collision(piece : &PieceState, fallen_blocks : &HashMap<Piv
             if read_block(this_shape, x, y, piece.rotation) {
                 // if the position of one of the blocks that makes up piece overlaps
                 // with the location of a block in fallen_blocks, we have a collision
-                
+
                 if fallen_blocks.contains_key(&Pivot{x: abs_x, y: abs_y}) {
                     return true;
                 }
@@ -213,7 +213,6 @@ pub fn fallen_blocks_collision(piece : &PieceState, fallen_blocks : &HashMap<Piv
 
     return false;
 }
-
 
 
 fn collision(piece : &PieceState, players_slab : &mut Slab<PieceState>)
