@@ -9,7 +9,7 @@ mod tests;
 
 use crate::piece_state::{PieceState, Pivot, BlockState};
 use crate::input::{KeyState};
-use crate::tetris::{update_state, BOARD_WIDTH, bottom_collision};
+use crate::tetris::{update_state, BOARD_WIDTH, bottom_collision, read_block, get_shape};
 
 use std::time::{SystemTime, UNIX_EPOCH};
 
@@ -156,7 +156,8 @@ impl Handler for Client<'_> {
             _ => println!("Client {} encountered an error: {:?}", player_id, code),
         }
 
-        remove_player(player_id, self.players);
+        let mut players = self.players.lock().unwrap();
+        remove_player(player_id, &mut *players);
     }
 
     /**
@@ -215,10 +216,8 @@ impl Handler for Client<'_> {
  *
  */
 fn remove_player(player_id: usize,
-                 players: & Mutex<Slab<PieceState>>) {
-
-    let mut players_guard = players.lock().unwrap();
-    (*players_guard).remove(player_id);
+                 players: &mut Slab<PieceState>) {
+    players.remove(player_id);
 }
 
 /**
@@ -226,7 +225,10 @@ fn remove_player(player_id: usize,
  *  Removes a player from the board and puts their piece in the queue.
  *
  */
-fn remove_from_play(player_id : usize) {
+fn remove_from_play(player_id : usize, players: &mut Slab<PieceState>) {
+    // this is temporary, change it
+    remove_player(player_id, players);
+
     println!("remove_from_play called on {}", player_id);
 }
 
@@ -251,6 +253,32 @@ fn millis_since_epoch() -> u128 {
     return since_the_epoch.as_millis();
 }
 
+fn add_fallen_blocks(piece : &PieceState, fallen_blocks : &mut Vec<BlockState>) {
+    let this_shape = get_shape(piece.shape);
+    let width = if this_shape.len() == 9 {3} else {4};
+    let this_origin = piece.pivot;
+
+    // iterate through all of the blocks that make up the
+    // current piece and add them to fallen_blocks.
+    for y in 0..width {
+        for x in 0..width {
+            let abs_x = x + this_origin.x;
+            let abs_y = y + this_origin.y;
+
+            if read_block(this_shape, x, y, piece.rotation) {
+                let block_state = BlockState {
+                    original_shape: piece.shape,
+                    position: Pivot {
+                        x: abs_x,
+                        y: abs_y,
+                    },
+                };
+
+                fallen_blocks.push(block_state);
+            }
+        }
+    }
+}
 
 fn shift_pieces(players : &mut Slab<PieceState>, fallen_blocks : &mut Vec<BlockState>) {
 
@@ -266,6 +294,11 @@ fn shift_pieces(players : &mut Slab<PieceState>, fallen_blocks : &mut Vec<BlockS
         // elements while iterating is not safe.
 
         if bottom_collision(&player_copy, fallen_blocks) {
+            add_fallen_blocks(player, fallen_blocks);
+
+            let t = json!({"fallen_blocks": fallen_blocks});
+            println!("{}", t);
+
             player_ids_to_remove.push(player_id);
         } else {
             player.pivot.y += 1;
@@ -274,9 +307,7 @@ fn shift_pieces(players : &mut Slab<PieceState>, fallen_blocks : &mut Vec<BlockS
 
     // actually remove players from the board
     for player_id in player_ids_to_remove {
-        // TODO: add to bottom state
-
-        remove_from_play(player_id);
+        remove_from_play(player_id, players);
     }
 }
 

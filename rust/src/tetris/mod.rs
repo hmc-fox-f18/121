@@ -104,7 +104,7 @@ fn apply_input(player_input : &KeyState,
  *  original.
  *
 **/
-fn read_block(piece : &[bool], x : i8, y : i8, rot : u8) -> bool {
+pub fn read_block(piece : &[bool], x : i8, y : i8, rot : u8) -> bool {
     let length : i8 = piece.len().try_into().unwrap();
     // Matrix width, 3 if there are 9 elements, 4 if there are 16
     let width = if length == 9 {3} else {4};
@@ -138,7 +138,7 @@ fn read_block(piece : &[bool], x : i8, y : i8, rot : u8) -> bool {
     }
 }
 
-fn get_shape(shape_num : u8) -> &'static [bool] {
+pub fn get_shape(shape_num : u8) -> &'static [bool] {
     match shape_num {
         0 => &PIECE_Z,
         1 => &PIECE_S,
@@ -184,19 +184,13 @@ pub fn bottom_collision(piece_state : &PieceState, fallen_blocks : &Vec<BlockSta
     // let this_shape = get_shape(piece.shape);
     // let width = if this_shape.len() == 9 {3} else {4};
     // let this_origin = piece.pivot;
-    //
-    // for y in 0..width {
-    //     for x in 0..width {
-    //         let abs_x = x + this_origin.x;
-    //         let abs_y = y + this_origin.y;
-    //         if read_block(this_shape, x, y, piece.rotation) &&
-    //                 (abs_x >= BOARD_WIDTH || abs_x < 0 || abs_y < 0) {
-    //             return true;
-    //         }
-    //     }
-    // }
 
-    return false;
+    let bottom_screen_collision = match screen_collision(piece_state) {
+        CollisionType::Floor => true,
+        _ => false,
+    };
+
+    return bottom_screen_collision;
 }
 
 
