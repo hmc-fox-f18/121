@@ -7,9 +7,9 @@ mod input;
 mod tetris;
 mod tests;
 
-use crate::piece_state::{PieceState, Pivot};
+use crate::piece_state::{PieceState, Pivot, BlockState};
 use crate::input::{KeyState};
-use crate::tetris::{update_state, BOARD_WIDTH};
+use crate::tetris::{update_state, BOARD_WIDTH, bottom_collision};
 
 use std::time::{SystemTime, UNIX_EPOCH};
 
@@ -251,25 +251,36 @@ fn millis_since_epoch() -> u128 {
     return since_the_epoch.as_millis();
 }
 
-fn shift_pieces(players : &mut Slab<PieceState>) {
+
+fn shift_pieces(players : &mut Slab<PieceState>, fallen_blocks : &mut Vec<BlockState>) {
+
     let mut player_ids_to_remove : Vec<usize> = vec![];
 
     for (player_id, mut player) in players.iter_mut() {
-        player.pivot.y += 1;
+        // make a copy which we shift down and check for collision
+        let mut player_copy = player.clone();
+        player_copy.pivot.y += 1;
 
         // If piece is off of the screen, remove it from play
         // We do this later, not in the iterator, since removing
         // elements while iterating is not safe.
-        if player.pivot.y >= BOARD_WIDTH {
+
+        if bottom_collision(&player_copy, fallen_blocks) {
             player_ids_to_remove.push(player_id);
+        } else {
+            player.pivot.y += 1;
         }
     }
 
     // actually remove players from the board
     for player_id in player_ids_to_remove {
+        // TODO: add to bottom state
+
         remove_from_play(player_id);
     }
 }
+
+
 
 /**
  *
@@ -283,13 +294,19 @@ fn game_frame(broadcaster: Sender,
     // the time when we last shifted the pieces down
     let mut last_shift_time : u128 = 0;
 
+    // stores PieceStates for all of the pieces that have
+    // fallen to the bottom of the screen
+    let mut fallen_blocks = Vec::new();
+
     loop {
         let mut players = thread_players.lock().unwrap();
+
 
         // drop the pieces 1 square if they need to be dropped
         let current_time = millis_since_epoch();
         if current_time - last_shift_time > SHIFT_PERIOD_MILLIS {
-            shift_pieces(&mut players);
+            // check to make sure shift works
+            shift_pieces(&mut players, &mut fallen_blocks);
             last_shift_time = current_time;
         }
 
@@ -302,8 +319,12 @@ fn game_frame(broadcaster: Sender,
 
         let response = json!({
             "piece_states": states,
-            "type": "gameState"
+            "type": "gameState",
+            "fallen_blocks": fallen_blocks,
         });
+
+        // println!("{}", response);
+
         //println!("{:?}", states);
         // Unlock players so main thread can take in player updates
         drop(players);

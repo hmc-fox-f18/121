@@ -1,6 +1,6 @@
 extern crate slab;
 
-use crate::piece_state::{PieceState};
+use crate::piece_state::{PieceState, BlockState};
 use crate::input::{KeyState};
 
 use slab::Slab;
@@ -151,9 +151,14 @@ fn get_shape(shape_num : u8) -> &'static [bool] {
     }
 }
 
-fn collision(piece : &PieceState, players_slab : &mut Slab<PieceState>)
-                -> bool {
-    // Check if in bounds
+pub enum CollisionType {
+    Ceiling,
+    Wall,
+    Floor,
+    None,
+}
+
+pub fn screen_collision(piece : &PieceState) -> CollisionType {
     let this_shape = get_shape(piece.shape);
     let width = if this_shape.len() == 9 {3} else {4};
     let this_origin = piece.pivot;
@@ -162,13 +167,54 @@ fn collision(piece : &PieceState, players_slab : &mut Slab<PieceState>)
         for x in 0..width {
             let abs_x = x + this_origin.x;
             let abs_y = y + this_origin.y;
-            if read_block(this_shape, x, y, piece.rotation) &&
-                    (abs_x >= BOARD_WIDTH || abs_x < 0 || abs_y < 0) {
-                return true;
+
+            if read_block(this_shape, x, y, piece.rotation) {
+                if (abs_x >= BOARD_WIDTH || abs_x < 0) { return CollisionType::Wall };
+                if (abs_y < 0) { return CollisionType::Ceiling; }
+                if (abs_y >= BOARD_WIDTH) { return CollisionType::Floor; }
             }
         }
     }
 
+    return CollisionType::None;
+}
+
+pub fn bottom_collision(piece_state : &PieceState, fallen_blocks : &Vec<BlockState>) -> bool {
+    // Check if in bounds
+    // let this_shape = get_shape(piece.shape);
+    // let width = if this_shape.len() == 9 {3} else {4};
+    // let this_origin = piece.pivot;
+    //
+    // for y in 0..width {
+    //     for x in 0..width {
+    //         let abs_x = x + this_origin.x;
+    //         let abs_y = y + this_origin.y;
+    //         if read_block(this_shape, x, y, piece.rotation) &&
+    //                 (abs_x >= BOARD_WIDTH || abs_x < 0 || abs_y < 0) {
+    //             return true;
+    //         }
+    //     }
+    // }
+
+    return false;
+}
+
+
+
+fn collision(piece : &PieceState, players_slab : &mut Slab<PieceState>)
+                -> bool {
+
+    // if we hit a wall, return true
+    let wall_collision = match screen_collision(piece) {
+        CollisionType::Wall => true,
+        _ => false,
+    };
+    if (wall_collision) { return true; }
+
+
+    let this_shape = get_shape(piece.shape);
+    let width = if this_shape.len() == 9 {3} else {4};
+    let this_origin = piece.pivot;
 
     // Check if collides with other players
     let players : Vec<&mut PieceState> = players_slab

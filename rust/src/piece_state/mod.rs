@@ -13,3 +13,9 @@ pub struct PieceState {
     pub rotation: u8,
     pub player_id: usize
 }
+
+#[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq)]
+pub struct BlockState {
+    pub original_shape: u8, // this is so we can use existing methods to determine color
+    pub position: Pivot,
+}
