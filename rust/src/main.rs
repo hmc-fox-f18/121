@@ -2,6 +2,7 @@ extern crate ws;
 extern crate rand;
 extern crate slab;
 
+use std::collections::HashMap;
 mod piece_state;
 mod input;
 mod tetris;
@@ -9,7 +10,7 @@ mod tests;
 
 use crate::piece_state::{PieceState, Pivot, BlockState};
 use crate::input::{KeyState};
-use crate::tetris::{update_state, BOARD_WIDTH, bottom_collision, read_block, get_shape};
+use crate::tetris::{update_state, BOARD_WIDTH, fallen_blocks_collision, read_block, get_shape};
 
 use std::time::{SystemTime, UNIX_EPOCH};
 
@@ -227,7 +228,7 @@ fn remove_player(player_id: usize,
  */
 fn remove_from_play(player_id : usize, players: &mut Slab<PieceState>) {
     // this is temporary, change it
-    remove_player(player_id, players);
+    // remove_player(player_id, players);
 
     println!("remove_from_play called on {}", player_id);
 }
@@ -253,7 +254,7 @@ fn millis_since_epoch() -> u128 {
     return since_the_epoch.as_millis();
 }
 
-fn add_fallen_blocks(piece : &PieceState, fallen_blocks : &mut Vec<BlockState>) {
+fn add_fallen_blocks(piece : &PieceState, fallen_blocks : &mut HashMap<Pivot, u8>) {
     let this_shape = get_shape(piece.shape);
     let width = if this_shape.len() == 9 {3} else {4};
     let this_origin = piece.pivot;
@@ -266,21 +267,18 @@ fn add_fallen_blocks(piece : &PieceState, fallen_blocks : &mut Vec<BlockState>) 
             let abs_y = y + this_origin.y;
 
             if read_block(this_shape, x, y, piece.rotation) {
-                let block_state = BlockState {
-                    original_shape: piece.shape,
-                    position: Pivot {
-                        x: abs_x,
-                        y: abs_y,
-                    },
+                let pivot = Pivot {
+                    x: abs_x,
+                    y: abs_y,
                 };
 
-                fallen_blocks.push(block_state);
+                fallen_blocks.insert(pivot, piece.shape);
             }
         }
     }
 }
 
-fn shift_pieces(players : &mut Slab<PieceState>, fallen_blocks : &mut Vec<BlockState>) {
+fn shift_pieces(players : &mut Slab<PieceState>, fallen_blocks : &mut HashMap<Pivot, u8>) {
 
     let mut player_ids_to_remove : Vec<usize> = vec![];
 
@@ -293,11 +291,11 @@ fn shift_pieces(players : &mut Slab<PieceState>, fallen_blocks : &mut Vec<BlockS
         // We do this later, not in the iterator, since removing
         // elements while iterating is not safe.
 
-        if bottom_collision(&player_copy, fallen_blocks) {
+        if fallen_blocks_collision(&player_copy, fallen_blocks) {
             add_fallen_blocks(player, fallen_blocks);
 
-            let t = json!({"fallen_blocks": fallen_blocks});
-            println!("{}", t);
+            // let t = json!({"fallen_blocks": fallen_blocks});
+            // println!("{}", t);
 
             player_ids_to_remove.push(player_id);
         } else {
@@ -327,7 +325,7 @@ fn game_frame(broadcaster: Sender,
 
     // stores PieceStates for all of the pieces that have
     // fallen to the bottom of the screen
-    let mut fallen_blocks = Vec::new();
+    let mut fallen_blocks = HashMap::new();
 
     loop {
         let mut players = thread_players.lock().unwrap();
@@ -348,15 +346,27 @@ fn game_frame(broadcaster: Sender,
                             .map(|(_key, val)| val)
                             .collect();
 
+        let fallen_blocks_list : Vec<BlockState> = fallen_blocks.iter().map(|(pivot, shape)| {
+            return BlockState {
+                position: pivot.clone(),
+                original_shape: *shape,
+            };
+        }).collect();
+
+        // // for debugging
+        // print!("blocks: ");
+        // for block in fallen_blocks_list.iter() {
+        //     print!("({}, {}), ", block.position.x, block.position.y);
+        // }
+        // print!("\n");
+
         let response = json!({
             "piece_states": states,
             "type": "gameState",
-            "fallen_blocks": fallen_blocks,
+            "fallen_blocks": fallen_blocks_list,
         });
 
-        // println!("{}", response);
 
-        //println!("{:?}", states);
         // Unlock players so main thread can take in player updates
         drop(players);
         // Send game state update to all connected clients

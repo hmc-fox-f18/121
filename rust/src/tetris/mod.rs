@@ -1,6 +1,8 @@
 extern crate slab;
+use std::collections::HashMap;
 
-use crate::piece_state::{PieceState, BlockState};
+use crate::piece_state::{PieceState, Pivot};
+
 use crate::input::{KeyState};
 
 use slab::Slab;
@@ -179,18 +181,37 @@ pub fn screen_collision(piece : &PieceState) -> CollisionType {
     return CollisionType::None;
 }
 
-pub fn bottom_collision(piece_state : &PieceState, fallen_blocks : &Vec<BlockState>) -> bool {
-    // Check if in bounds
-    // let this_shape = get_shape(piece.shape);
-    // let width = if this_shape.len() == 9 {3} else {4};
-    // let this_origin = piece.pivot;
-
-    let bottom_screen_collision = match screen_collision(piece_state) {
+pub fn fallen_blocks_collision(piece : &PieceState, fallen_blocks : &HashMap<Pivot, u8>) -> bool {
+    // Check if we collide with the bottom of the screen
+    let bottom_screen_collision = match screen_collision(piece) {
         CollisionType::Floor => true,
         _ => false,
     };
+    if bottom_screen_collision { return true; }
 
-    return bottom_screen_collision;
+    // check if we collide with any of the bottom blocks
+
+    let this_shape = get_shape(piece.shape);
+    let width = if this_shape.len() == 9 {3} else {4};
+    let this_origin = piece.pivot;
+
+    for y in 0..width {
+        for x in 0..width {
+            let abs_x = x + this_origin.x;
+            let abs_y = y + this_origin.y;
+
+            if read_block(this_shape, x, y, piece.rotation) {
+                // if the position of one of the blocks that makes up piece overlaps
+                // with the location of a block in fallen_blocks, we have a collision
+                
+                if fallen_blocks.contains_key(&Pivot{x: abs_x, y: abs_y}) {
+                    return true;
+                }
+            }
+        }
+    }
+
+    return false;
 }
 
 
