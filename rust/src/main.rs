@@ -405,7 +405,6 @@ fn main() {
     let server_gen  = |out : Sender| {
         Client {
             out: out,
-            active: true,
             timeout: None,
             player_queue: &player_queue,
             block_queue: &block_queue,
