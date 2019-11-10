@@ -10,18 +10,19 @@ mod tests;
 
 use crate::piece_state::{PieceState, Pivot, BlockState};
 use crate::input::{KeyState};
-use crate::tetris::{update_state, BOARD_WIDTH, fallen_blocks_collision, read_block, get_shape};
+use crate::tetris::{update_state, fallen_blocks_collision, read_block, get_shape};
 
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use rand::Rng;
 use std::sync::{Arc, Mutex};
 use std::{time, thread};
+use std::collections::VecDeque;
+use std::cmp::min;
 
 use ws::{CloseCode, Handler, Handshake, Message, Result,
      Sender, WebSocket, util::Token, util::Timeout};
 
-use slab::Slab;
 use serde_json::json;
 
 const FRAME_MILLIS : u64 = (1000.0 / 60.0) as u64;
@@ -29,6 +30,8 @@ const FRAME_TIME : time::Duration = time::Duration::from_millis(FRAME_MILLIS);
 
 const TIMEOUT_MILLIS : u64 = 10000;
 
+const NUM_BAGS : usize = 6;
+const NUM_ACTIVE : usize = 10;
 // how long it takes between when pieces move down 1 square
 const SHIFT_PERIOD_MILLIS : u128 = 1000;
 
@@ -42,8 +45,9 @@ const SHIFT_PERIOD_MILLIS : u128 = 1000;
  */
 struct Client<'a> {
     out: Sender,
-    player_key: usize,
-    players: &'a Mutex<Slab<PieceState>>,
+    player_queue: &'a Mutex<VecDeque<PieceState>>,
+    block_queue: &'a Mutex<[ [usize ; 7] ; NUM_BAGS ]>,
+    block_index: &'a Mutex<usize>,
     timeout: Option<Timeout>
 }
 
@@ -62,44 +66,31 @@ impl Handler for Client<'_> {
     fn on_open(&mut self, shake: Handshake) -> Result<()> {
         println!("Request: {}", shake.request);
         let player_id : usize = self.out.token().into();
-        let mut players = self.players.lock().unwrap();
+        let mut player_queue = self.player_queue.lock().unwrap();
         let response;
 
-        println!("Players: {:?}", players);
-        // Resend data for reconnecting user
-        // TODO: Resend positional and rotational data ?
-        // Could wait on game state update for data instead
-        if players.contains(player_id) {
-            let new_piece_state = players.get(player_id).unwrap();
-            let piece_type = new_piece_state.shape;
-            response = json!({
-                "player_id": player_id,
-                "piece_type": piece_type,
-                "type": "init"
-            });
-        }
-        else {
-            // Player doesn't exist, add to players list
-            // TODO: Genericize initial piece state
-            let piece_type: u8 = next_piece();
-            let new_piece_state = PieceState{
-                shape: piece_type,
-                pivot: Pivot{
-                    x: 5,
-                    y: 5
-                },
-                rotation: 0,
-                player_id: player_id
-            };
-            // Insert new player data into game state
-            self.player_key = players.insert(new_piece_state);
-            response = json!({
-                "player_id": player_id,
-                "piece_type": piece_type,
-                "type": "init"
-            });
-        }
+        println!("Players: {:?}", player_queue);
+        // Player doesn't exist, add to players list
+        // TODO: Genericize initial piece state
+        let piece_type: u8 = next_piece();
+        let new_piece_state = PieceState{
+            shape: piece_type,
+            pivot: Pivot{
+                x: 5,
+                y: 5
+            },
+            rotation: 0,
+            player_id: player_id
+        };
 
+        // Insert player into back of queue
+        player_queue.push_back(new_piece_state);
+
+        response = json!({
+            "player_id": player_id,
+            "piece_type": piece_type,
+            "type": "init"
+        });
         // setup ping every second
         self.out.timeout(TIMEOUT_MILLIS, self.out.token()).unwrap();
 
@@ -119,12 +110,12 @@ impl Handler for Client<'_> {
             // Try to parse the message as a piece state
             match serde_json::from_str::<KeyState>(&text) {
                 Ok(mut player_input) => {
-                    let mut players = self.players.lock().unwrap();
+                    let mut players_queue = self.player_queue.lock().unwrap();
                     // Don't trust input, ensure labelled properly
                     let player_id : usize = self.out.token().into();
                     player_input.player_id = player_id;
                     // Update state for player
-                    update_state(&mut players, &player_input);
+                    update_state(&mut players_queue, &player_input);
                     return Ok(());
                 }
                 Err(e) => {
@@ -157,7 +148,7 @@ impl Handler for Client<'_> {
             _ => println!("Client {} encountered an error: {:?}", player_id, code),
         }
 
-        let mut players = self.players.lock().unwrap();
+        let mut players = self.player_queue.lock().unwrap();
         remove_player(player_id, &mut *players);
     }
 
@@ -217,7 +208,7 @@ impl Handler for Client<'_> {
  *
  */
 fn remove_player(player_id: usize,
-                 players: &mut Slab<PieceState>) {
+                 players: &mut VecDeque<PieceState>) {
     players.remove(player_id);
 }
 
@@ -226,10 +217,22 @@ fn remove_player(player_id: usize,
  *  Removes a player from the board and puts their piece in the queue.
  *
  */
-fn remove_from_play(player_id : usize, players: &mut Slab<PieceState>) {
+fn remove_from_play(player_id : usize, players: &mut VecDeque<PieceState>) {
     // this is temporary, change it
     // remove_player(player_id, players);
-
+    let mut index = 0;
+    loop {
+        // Let crash if not in queue for now.
+        println!("Trying to remove player {} from Players: \n {:?}", player_id, players);
+        let player = players.get(index).unwrap();
+        if player.player_id == player_id {
+            // Remove player then push them to the back of the queue
+            let removed_piece = players.remove(index).unwrap();
+            players.push_back(removed_piece);
+            break;
+        }
+        index += 1;
+    };
     println!("remove_from_play called on {}", player_id);
 }
 
@@ -278,11 +281,11 @@ fn add_fallen_blocks(piece : &PieceState, fallen_blocks : &mut HashMap<Pivot, u8
     }
 }
 
-fn shift_pieces(players : &mut Slab<PieceState>, fallen_blocks : &mut HashMap<Pivot, u8>) {
+fn shift_pieces(players : &mut VecDeque<PieceState>, fallen_blocks : &mut HashMap<Pivot, u8>) {
 
     let mut player_ids_to_remove : Vec<usize> = vec![];
 
-    for (player_id, mut player) in players.iter_mut() {
+    for mut player in players.iter_mut() {
         // make a copy which we shift down and check for collision
         let mut player_copy = player.clone();
         player_copy.pivot.y += 1;
@@ -297,13 +300,14 @@ fn shift_pieces(players : &mut Slab<PieceState>, fallen_blocks : &mut HashMap<Pi
             // let t = json!({"fallen_blocks": fallen_blocks});
             // println!("{}", t);
 
-            player_ids_to_remove.push(player_id);
+            player_ids_to_remove.push(player.player_id);
         } else {
             player.pivot.y += 1;
         }
     }
 
     // actually remove players from the board
+    println!("Player IDs to Remove: {:?}", player_ids_to_remove);
     for player_id in player_ids_to_remove {
         remove_from_play(player_id, players);
     }
@@ -317,8 +321,10 @@ fn shift_pieces(players : &mut Slab<PieceState>, fallen_blocks : &mut HashMap<Pi
  *  state update to all the clients.
  *
  */
-fn game_frame(broadcaster: Sender,
-                thread_players: Arc<Mutex<Slab<PieceState>>>) {
+fn game_frame<'a>(broadcaster: Sender,
+                thread_block_queue: Arc<Mutex<[ [usize ; 7] ; NUM_BAGS ]>>,
+                thread_block_index: Arc<Mutex<usize>>,
+                thread_player_queue: Arc<Mutex<VecDeque<PieceState>>>) {
 
     // the time when we last shifted the pieces down
     let mut last_shift_time : u128 = 0;
@@ -328,23 +334,16 @@ fn game_frame(broadcaster: Sender,
     let mut fallen_blocks = HashMap::new();
 
     loop {
-        let mut players = thread_players.lock().unwrap();
+        let mut player_queue = thread_player_queue.lock().unwrap();
 
 
         // drop the pieces 1 square if they need to be dropped
         let current_time = millis_since_epoch();
         if current_time - last_shift_time > SHIFT_PERIOD_MILLIS {
             // check to make sure shift works
-            shift_pieces(&mut players, &mut fallen_blocks);
+            shift_pieces(&mut player_queue, &mut fallen_blocks);
             last_shift_time = current_time;
         }
-
-        // Parse actual player states out of the list to exclude
-        // empty slots in Slab
-        let states : Vec<&PieceState> = players
-                            .iter()
-                            .map(|(_key, val)| val)
-                            .collect();
 
         let fallen_blocks_list : Vec<BlockState> = fallen_blocks.iter().map(|(pivot, shape)| {
             return BlockState {
@@ -360,6 +359,9 @@ fn game_frame(broadcaster: Sender,
         // }
         // print!("\n");
 
+        let num_active = min(NUM_ACTIVE, player_queue.len());
+        // Get the active players from the front of the deque
+        let states = &player_queue.as_slices().0[.. num_active];
         let response = json!({
             "piece_states": states,
             "type": "gameState",
@@ -368,7 +370,7 @@ fn game_frame(broadcaster: Sender,
 
 
         // Unlock players so main thread can take in player updates
-        drop(players);
+        drop(player_queue);
         // Send game state update to all connected clients
         match broadcaster.send(response.to_string()) {
             Ok(v) => v,
@@ -392,15 +394,22 @@ fn game_frame(broadcaster: Sender,
  *
  */
 fn main() {
-    let players = Arc::new(Mutex::new(Slab::new()));
-    let thread_players = players.clone();
+    let block_queue = Arc::new(Mutex::new([[0 ; 7] ; NUM_BAGS]));
+    let block_index = Arc::new(Mutex::new(0));
+    let player_queue = Arc::new(Mutex::new(VecDeque::new()));
+
+    let thread_block_queue = block_queue.clone();
+    let thread_block_index = block_index.clone();
+    let thread_player_queue = player_queue.clone();
     // Code that initializes client structs
     let server_gen  = |out : Sender| {
         Client {
             out: out,
-            player_key: 0,
-            players: &players,
+            active: true,
             timeout: None,
+            player_queue: &player_queue,
+            block_queue: &block_queue,
+            block_index: &block_index
         }
     };
 
@@ -416,7 +425,8 @@ fn main() {
     // Clone broadcaster to send data to clients on other thread
     let broadcaster = socket.broadcaster().clone();
     let _game_thread = thread::spawn(move || {
-        game_frame(broadcaster, thread_players);
+        game_frame(broadcaster, thread_block_queue,
+                    thread_block_index, thread_player_queue);
     });
     // Run the server on this thread
     socket.run().unwrap();
