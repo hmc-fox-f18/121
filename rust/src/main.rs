@@ -14,7 +14,8 @@ use crate::tetris::{update_state, fallen_blocks_collision, read_block, get_shape
 
 use std::time::{SystemTime, UNIX_EPOCH};
 
-use rand::Rng;
+use rand::thread_rng;
+use rand::prelude::SliceRandom;
 use std::sync::{Arc, Mutex};
 use std::{time, thread};
 use std::collections::VecDeque;
@@ -30,7 +31,7 @@ const FRAME_TIME : time::Duration = time::Duration::from_millis(FRAME_MILLIS);
 
 const TIMEOUT_MILLIS : u64 = 10000;
 
-const NUM_BAGS : usize = 6;
+const NUM_BAGS : usize = 3;
 const NUM_ACTIVE : usize = 10;
 // how long it takes between when pieces move down 1 square
 const SHIFT_PERIOD_MILLIS : u128 = 1000;
@@ -46,7 +47,7 @@ const SHIFT_PERIOD_MILLIS : u128 = 1000;
 struct Client<'a> {
     out: Sender,
     player_queue: &'a Mutex<VecDeque<PieceState>>,
-    block_queue: &'a Mutex<[ [usize ; 7] ; NUM_BAGS ]>,
+    block_queue: &'a Mutex<[ [u8 ; 14] ; NUM_BAGS ]>,
     block_index: &'a Mutex<usize>,
     timeout: Option<Timeout>
 }
@@ -72,7 +73,8 @@ impl Handler for Client<'_> {
         println!("Players: {:?}", player_queue);
         // Player doesn't exist, add to players list
         // TODO: Genericize initial piece state
-        let piece_type: u8 = next_piece();
+        let piece_type: u8 = next_piece(self.block_queue,
+                                            self.block_index);
         let new_piece_state = PieceState{
             shape: piece_type,
             pivot: Pivot{
@@ -209,7 +211,18 @@ impl Handler for Client<'_> {
  */
 fn remove_player(player_id: usize,
                  players: &mut VecDeque<PieceState>) {
-    players.remove(player_id);
+    let mut index = 0;
+    loop {
+        // Let crash if not in queue for now.
+        let player = players.get(index).unwrap();
+        if player.player_id == player_id {
+            // Remove player
+            players.remove(index).unwrap();
+            break;
+        }
+        index += 1;
+    };
+    println!("remove_player called on {}", player_id);
 }
 
 /**
@@ -243,9 +256,18 @@ fn remove_from_play(player_id : usize, players: &mut VecDeque<PieceState>) {
  *  TODO: Implement Tetris bag generation for better distribution
  *
  */
-pub fn next_piece() -> u8 {
-    let mut rng = rand::thread_rng();
-    return rng.gen_range(0, 7);
+pub fn next_piece(thread_block_queue: &Mutex<[ [u8 ; 14] ; NUM_BAGS ]>,
+                thread_block_index: &Mutex<usize>) -> u8 {
+    let mut rng = thread_rng();
+    let mut stored_index = thread_block_index.lock().unwrap();
+    let index = *stored_index;
+    let mut block_queue = thread_block_queue.lock().unwrap();
+    let next_piece = block_queue[index / 14][index % 14];
+    if index % 14 == 13 {
+        block_queue[index / 14].shuffle(&mut rng);
+    }
+    *stored_index = (index + 1) % (14 * NUM_BAGS);
+    return next_piece;
 }
 
 
@@ -307,7 +329,6 @@ fn shift_pieces(players : &mut VecDeque<PieceState>, fallen_blocks : &mut HashMa
     }
 
     // actually remove players from the board
-    println!("Player IDs to Remove: {:?}", player_ids_to_remove);
     for player_id in player_ids_to_remove {
         remove_from_play(player_id, players);
     }
@@ -322,7 +343,7 @@ fn shift_pieces(players : &mut VecDeque<PieceState>, fallen_blocks : &mut HashMa
  *
  */
 fn game_frame<'a>(broadcaster: Sender,
-                thread_block_queue: Arc<Mutex<[ [usize ; 7] ; NUM_BAGS ]>>,
+                thread_block_queue: Arc<Mutex<[ [u8 ; 14] ; NUM_BAGS ]>>,
                 thread_block_index: Arc<Mutex<usize>>,
                 thread_player_queue: Arc<Mutex<VecDeque<PieceState>>>) {
 
@@ -361,7 +382,9 @@ fn game_frame<'a>(broadcaster: Sender,
 
         let num_active = min(NUM_ACTIVE, player_queue.len());
         // Get the active players from the front of the deque
-        let states = &player_queue.as_slices().0[.. num_active];
+        let states : Vec<&PieceState> = player_queue.iter()
+                                                    .take(num_active)
+                                                    .collect();
         let response = json!({
             "piece_states": states,
             "type": "gameState",
@@ -394,7 +417,8 @@ fn game_frame<'a>(broadcaster: Sender,
  *
  */
 fn main() {
-    let block_queue = Arc::new(Mutex::new([[0 ; 7] ; NUM_BAGS]));
+    let block_queue = Arc::new(Mutex::new([[0, 1, 2, 3, 4, 5, 6, 0, 1, 2, 3, 4, 5, 6] ; NUM_BAGS]));
+
     let block_index = Arc::new(Mutex::new(0));
     let player_queue = Arc::new(Mutex::new(VecDeque::new()));
 
