@@ -29,7 +29,7 @@ use serde_json::json;
 const FRAME_MILLIS : u64 = (1000.0 / 60.0) as u64;
 const FRAME_TIME : time::Duration = time::Duration::from_millis(FRAME_MILLIS);
 
-const TIMEOUT_MILLIS : u64 = 10000;
+const TIMEOUT_MILLIS : u64 = 3000;
 
 const NUM_BAGS : usize = 3;
 const NUM_ACTIVE : usize = 10;
@@ -166,9 +166,18 @@ impl Handler for Client<'_> {
         // close the connection, send Error close code because we shouldn't
         // hit a timeout unless the server dies
         // this will trigger on_close which will remove the player
+        println!("Timed Out Player");
         match self.out.ping(vec![]) {
-            Ok(()) => self.out.timeout(TIMEOUT_MILLIS, self.out.token()).unwrap(),
-            _ => self.out.close(CloseCode::Error).unwrap(),
+            Ok(_response) => {
+                self.out.timeout(TIMEOUT_MILLIS, self.out.token()).unwrap();
+                println!("Player ponged with {:?}", _response);
+            }
+            _err => {
+                let player_id : usize = self.out.token().into();
+                let mut players = self.player_queue.lock().unwrap();
+                remove_player(player_id, &mut *players);
+                self.out.close(CloseCode::Error).unwrap()
+            }
         }
         // Note: timeouts will actually occur if the client refreshes
         // the page
