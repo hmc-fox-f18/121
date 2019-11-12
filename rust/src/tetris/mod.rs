@@ -52,6 +52,13 @@ pub const BOARD_WIDTH : i8 = 20;
 pub fn update_state(player_queue : &mut VecDeque<PieceState>,
                         player_input : &KeyState) {
     let player_id = player_input.player_id;
+
+    // only apply the update if the player specified in player_id is active
+    let active_player_ids : Vec<usize> = player_queue.iter().map(|player| player.player_id).collect();
+    if !active_player_ids.contains(&player_id) {
+        return
+    }
+
     let new_state = apply_input(player_input, player_queue);
     if !collision(&new_state, player_queue) {
         update_queue(player_queue, player_id, new_state);

@@ -72,15 +72,13 @@ impl Handler for Client<'_> {
     fn on_open(&mut self, shake: Handshake) -> Result<()> {
         println!("Request: {}", shake.request);
         let player_id : usize = self.out.token().into();
-        let mut player_queue = self.player_queue.lock().unwrap();
         let response;
-
-        println!("Players: {:?}", player_queue);
+        
         // Player doesn't exist, add to players list
         // TODO: Genericize initial piece state
         let piece_type: u8 = next_piece(self.block_queue,
                                             self.block_index);
-        let new_piece_state = PieceState{
+        let new_piece_state = PieceState {
             shape: piece_type,
             pivot: Pivot {
                 x: PIECE_START_X,
@@ -90,14 +88,17 @@ impl Handler for Client<'_> {
             player_id: player_id
         };
 
-        // Insert player into back of queue
-        player_queue.push_back(new_piece_state);
+        // Insert player into back of inactive queue
+        let mut inactive_queue = self.inactive_queue.lock().unwrap();
+        inactive_queue.push_back(new_piece_state);
+        drop(inactive_queue);
 
         response = json!({
             "player_id": player_id,
             "piece_type": piece_type,
             "type": "init"
         });
+
         // setup ping every second
         self.out.timeout(TIMEOUT_MILLIS, self.out.token()).unwrap();
 
