@@ -35,7 +35,7 @@ const NUM_BAGS : usize = 3;
 const BAG_SIZE : usize = 14;
 const MAX_NUM_ACTIVE : usize = 2;
 // how long it takes between when pieces move down 1 square
-const SHIFT_PERIOD_MILLIS : u128 = 1000;
+const SHIFT_PERIOD_MILLIS : u128 = 500;
 
 const PIECE_START_X : i8 = 5;
 const PIECE_START_Y : i8 = 5;
@@ -76,18 +76,12 @@ impl Handler for Client<'_> {
         let player_id : usize = self.out.token().into();
         let response;
 
-        // Player doesn't exist, add to players list
-        // TODO: Genericize initial piece state
-        let mut block_queue = self.block_queue.lock().unwrap();
-        let mut block_index = self.block_index.lock().unwrap();
-
-        let piece_type: u8 = next_piece(&mut block_queue, &mut block_index);
-
+        // a "null" struct, this will be set properly when the piece becomes active
         let new_piece_state = PieceState {
-            shape: piece_type,
+            shape: 0,
             pivot: Pivot {
-                x: PIECE_START_X,
-                y: PIECE_START_Y,
+                x: 0,
+                y: 0,
             },
             rotation: 0,
             player_id: player_id
@@ -100,13 +94,11 @@ impl Handler for Client<'_> {
 
         response = json!({
             "player_id": player_id,
-            "piece_type": piece_type,
-            "type": "init"
+            "type": "init",
         });
 
         // setup ping every second
         self.out.timeout(TIMEOUT_MILLIS, self.out.token()).unwrap();
-
         self.out.send(response.to_string())
     }
 
@@ -300,9 +292,11 @@ pub fn next_piece(block_queue: &mut [[u8 ; 14] ; NUM_BAGS ],
 Gets the next fourteen pieces that will be put into play and returns them as a Vec.
 */
 pub fn peek_next_pieces(block_queue: &[ [u8 ; 14] ; NUM_BAGS ],
-                   block_index: usize) -> Vec<u8> {
+                        block_index: usize) -> Vec<u8> {
 
     let mut next_bag = Vec::new();
+
+    println!("index {} --> [{}][{}]", block_index, (block_index / BAG_SIZE) % NUM_BAGS, block_index % BAG_SIZE);
 
     for global_index in block_index..(block_index + BAG_SIZE) {
         let bag = (global_index / BAG_SIZE) % NUM_BAGS;
@@ -310,6 +304,8 @@ pub fn peek_next_pieces(block_queue: &[ [u8 ; 14] ; NUM_BAGS ],
 
         next_bag.push(block_queue[bag][index]);
     }
+
+    println!("{:?}", next_bag);
 
     return next_bag;
 }
@@ -382,6 +378,8 @@ fn activate_piece(players : &mut VecDeque<PieceState>,
                   inactive_players : &mut VecDeque<PieceState>,
                   block_queue : &mut [ [u8 ; 14] ; NUM_BAGS ],
                   block_index : &mut usize) {
+
+    println!("index {}, {:?}", block_index, block_queue);
 
     // if we have more pieces in play and there are inactive pieces in the queue
     if MAX_NUM_ACTIVE - players.len() > 0 && inactive_players.len() > 0 {
