@@ -75,8 +75,6 @@ class GameState {
 
     let piece_queue = [0, 4, 5, 6, 1];
     if (server_state.hasOwnProperty('piece_queue')) {
-      console.log(server_state.piece_queue);
-
       piece_queue = [...server_state.piece_queue]; // clone an array ES6-style
     }
 

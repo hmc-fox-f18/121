@@ -53,8 +53,6 @@ struct Client<'a> {
     out: Sender,
     player_queue: &'a Mutex<VecDeque<PieceState>>,
     inactive_queue: &'a Mutex<VecDeque<PieceState>>,
-    block_queue: &'a Mutex<[ [u8 ; 14] ; NUM_BAGS ]>,
-    block_index: &'a Mutex<usize>,
     fallen_blocks: &'a Mutex<HashMap<Pivot, u8>>,
     timeout: Option<Timeout>,
 }
@@ -290,13 +288,12 @@ pub fn next_piece(block_queue: &mut [[u8 ; 14] ; NUM_BAGS ],
 
 /*
 Gets the next fourteen pieces that will be put into play and returns them as a Vec.
+Don't actually change the piece queue at all, hence the word "peek."
 */
 pub fn peek_next_pieces(block_queue: &[ [u8 ; 14] ; NUM_BAGS ],
                         block_index: usize) -> Vec<u8> {
 
     let mut next_bag = Vec::new();
-
-    println!("index {} --> [{}][{}]", block_index, (block_index / BAG_SIZE) % NUM_BAGS, block_index % BAG_SIZE);
 
     for global_index in block_index..(block_index + BAG_SIZE) {
         let bag = (global_index / BAG_SIZE) % NUM_BAGS;
@@ -304,8 +301,6 @@ pub fn peek_next_pieces(block_queue: &[ [u8 ; 14] ; NUM_BAGS ],
 
         next_bag.push(block_queue[bag][index]);
     }
-
-    println!("{:?}", next_bag);
 
     return next_bag;
 }
@@ -379,8 +374,6 @@ fn activate_piece(players : &mut VecDeque<PieceState>,
                   block_queue : &mut [ [u8 ; 14] ; NUM_BAGS ],
                   block_index : &mut usize) {
 
-    println!("index {}, {:?}", block_index, block_queue);
-
     // if we have more pieces in play and there are inactive pieces in the queue
     if MAX_NUM_ACTIVE - players.len() > 0 && inactive_players.len() > 0 {
         let mut player = inactive_players.pop_front().unwrap();
@@ -407,8 +400,6 @@ fn activate_piece(players : &mut VecDeque<PieceState>,
  *
  */
 fn game_frame<'a>(broadcaster: Sender,
-                  thread_block_queue: Arc<Mutex<[ [u8 ; 14] ; NUM_BAGS ]>>,
-                  thread_block_index: Arc<Mutex<usize>>,
                   thread_player_queue: Arc<Mutex<VecDeque<PieceState>>>,
                   thread_inactive_queue: Arc<Mutex<VecDeque<PieceState>>>,
                   thread_fallen_blocks : Arc<Mutex<HashMap<Pivot, u8>>>) {
@@ -416,12 +407,15 @@ fn game_frame<'a>(broadcaster: Sender,
     // the time when we last shifted the pieces down
     let mut last_shift_time : u128 = 0;
 
+    //
+    let mut block_queue = [[0, 1, 2, 3, 4, 5, 6, 0, 1, 2, 3, 4, 5, 6] ; NUM_BAGS];
+    let mut block_index = 0;
+
     loop {
         let mut player_queue = thread_player_queue.lock().unwrap();
         let mut inactive_player_queue = thread_inactive_queue.lock().unwrap();
         let mut fallen_blocks = thread_fallen_blocks.lock().unwrap();
-        let mut block_queue = thread_block_queue.lock().unwrap();
-        let mut block_index = thread_block_index.lock().unwrap();
+
 
         // drop the pieces 1 square if they need to be dropped
         let current_time = millis_since_epoch();
@@ -450,7 +444,7 @@ fn game_frame<'a>(broadcaster: Sender,
             inactive_player_queue.iter().map(|player| player.player_id).collect();
 
         // get the next 14 pieces that will be deployed
-        let next_pieces = peek_next_pieces(&block_queue, *block_index);
+        let next_pieces = peek_next_pieces(&block_queue, block_index);
 
 
         let response = json!({
@@ -465,8 +459,6 @@ fn game_frame<'a>(broadcaster: Sender,
         drop(player_queue);
         drop(inactive_player_queue);
         drop(fallen_blocks);
-        drop(block_queue);
-        drop(block_index);
 
         // Send game state update to all connected clients
         match broadcaster.send(response.to_string()) {
@@ -491,14 +483,10 @@ fn game_frame<'a>(broadcaster: Sender,
  *
  */
 fn main() {
-    let block_queue = Arc::new(Mutex::new([[0, 1, 2, 3, 4, 5, 6, 0, 1, 2, 3, 4, 5, 6] ; NUM_BAGS]));
-    let block_index = Arc::new(Mutex::new(0));
     let player_queue = Arc::new(Mutex::new(VecDeque::new()));
     let inactive_queue = Arc::new(Mutex::new(VecDeque::new()));
     let fallen_blocks = Arc::new(Mutex::new(HashMap::new()));
 
-    let thread_block_queue = block_queue.clone();
-    let thread_block_index = block_index.clone();
     let thread_player_queue = player_queue.clone();
     let thread_inactive_queue = inactive_queue.clone();
     let thread_fallen_blocks = fallen_blocks.clone();
@@ -510,8 +498,6 @@ fn main() {
             timeout: None,
             player_queue: &player_queue,
             inactive_queue: &inactive_queue,
-            block_queue: &block_queue,
-            block_index: &block_index,
             fallen_blocks: &fallen_blocks,
         }
     };
@@ -529,8 +515,6 @@ fn main() {
     let broadcaster = socket.broadcaster().clone();
     let _game_thread = thread::spawn(move || {
         game_frame(broadcaster,
-                   thread_block_queue,
-                   thread_block_index,
                    thread_player_queue,
                    thread_inactive_queue,
                    thread_fallen_blocks);
