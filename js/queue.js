@@ -107,7 +107,7 @@ function getMyQueuePosition() {
 function getMyPieceShape() {
   for (let i = 0; i < game_state.player_queue.length; i+=1) {
     if (game_state.player_queue[i] == my_player_id) {
-      return i;
+      return game_state.piece_queue[i];
     }
   }
 
