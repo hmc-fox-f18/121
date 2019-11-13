@@ -23,31 +23,39 @@ function initSocket(connectionCallback) {
 
     socket.onmessage = function(event) {
         let message = JSON.parse(event.data);
-        if (message.type == 'init') {
-          my_player_id = message.player_id;
-        } else {
-          game_state = GameState.fromJson(event.data);
 
-          if (!made_callback) {
-            made_callback = true;
-            connectionCallback();
-          }
+        switch (message.type) {
+          case 'init':
+            my_player_id = message.player_id;
+            break;
+
+          case 'gameState':
+            game_state = GameState.fromJson(event.data);
+
+            if (!made_callback) {
+              made_callback = true;
+              connectionCallback();
+            }
+            break;
+
+          default:
+            console.error(`Invalid message type ${message.type} received from server.`);
         }
     };
 
     socket.onclose = function(event) {
-        socketOpen = false;
-        if (event.wasClean) {
-            alert(`[close] Connection closed cleanly, code=${event.code} reason=${event.reason}`);
-        } else {
-            // e.g. server process killed or network down
-            // event.code is usually 1006 in this case
-            alert('[close] Connection died');
-            }
-        };
+      socketOpen = false;
+      // if (event.wasClean) {
+      //     alert(`[close] Connection closed cleanly, code=${event.code} reason=${event.reason}`);
+      // } else {
+      //   // e.g. server process killed or network down
+      //   // event.code is usually 1006 in this case
+      //   alert('[close] Connection died');
+      // }
+    };
 
     socket.onerror = function(error) {
-      alert(`[error] ${error.message}`);
+      // alert(`[error] ${error.message}`);
     };
 }
 

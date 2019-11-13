@@ -121,20 +121,25 @@ function drawMyPiece() {
 
   // if my piece is in the queue
   if (queue_position != -1) {
+    $("#my-piece").show();
+
     $("#my-piece .shape").html(getPieceHTML(getMyPieceShape()));
 
     // add 1 to convert from zero-indexed to 1-indexed
     $("#my-piece .position").html("#" + (queue_position + 1));
+  } else {
+    $("#my-piece").hide();
   }
 }
 
 // draws the block queue which shows what the next three
 // blocks will be
 function drawBlockQueue() {
-  let children = $("#block-queue").children();
+  let children = $("#block-queue").find(".shape");
 
   for (let i = 0; i < children.length; i++) {
-    $(children[i]).find(".shape").html(getPieceHTML(game_state.piece_queue[i]));
+    // get the ith child
+    $(children).eq(i).html(getPieceHTML(game_state.piece_queue[i]));
   }
 }
 

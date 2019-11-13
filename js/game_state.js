@@ -80,7 +80,7 @@ class GameState {
 
     let player_queue = [0, 1, 2, 3];
     if (server_state.hasOwnProperty('player_queue')) {
-      player_queue = [...server_state.piece_queue];
+      player_queue = [...server_state.player_queue];
     }
 
     return new GameState(piece_states, piece_queue, player_queue, fallen_blocks);
