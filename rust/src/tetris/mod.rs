@@ -1,12 +1,11 @@
 extern crate slab;
-use std::collections::HashMap;
+
+use std::convert::TryInto;
 
 use crate::piece_state::{PieceState, Pivot};
-
 use crate::input::{KeyState};
+use crate::{ActivePlayersType, FallenBlocksType};
 
-use std::collections::VecDeque;
-use std::convert::TryInto;
 // TODO: Cleaner representation of pieces for calculations
 // consider classes
 const PIECE_Z : [bool ; 9] = [ true, true, false, false, true, true, false, false, false]; //0
@@ -49,48 +48,33 @@ const I_BLOCK_Y_KICKS : [ [i8 ; 8] ; 4] = [
 const ROT_LIMIT : u8 = 4;
 pub const BOARD_WIDTH : i8 = 20;
 
-pub fn update_state(player_queue : &mut VecDeque<PieceState>,
+pub fn update_state(active_players : &mut ActivePlayersType,
                     player_input : &KeyState,
-                    fallen_blocks : &HashMap<Pivot, u8>) {
+                    fallen_blocks : &FallenBlocksType) {
+
     let player_id = player_input.player_id;
+    let active_player_ids : Vec<usize> = active_players.keys().map(|key| *key).collect();
 
     // only apply the update if the player specified in player_id is active
-    let active_player_ids : Vec<usize> = player_queue.iter().map(|player| player.player_id).collect();
     if !active_player_ids.contains(&player_id) {
         return
     }
 
-    let new_state = apply_input(player_input, player_queue, fallen_blocks);
-    if !collision(&new_state, player_queue, fallen_blocks) {
-        update_queue(player_queue, player_id, new_state);
+    let new_state = apply_input(player_input, active_players, fallen_blocks);
+    if !collision(&new_state, active_players, fallen_blocks) {
+        // call unwrap() to make sure that there was already a key present and
+        // that we are just updating an existing entry
+        active_players.insert(player_id, new_state).unwrap();
     }
-}
-
-fn update_queue(player_queue : &mut VecDeque<PieceState>,
-                    player_id : usize, new_state : PieceState) {
-    for player in player_queue {
-        if player.player_id == player_id {
-            *player = new_state;
-            return;
-        }
-    }
-    panic!("Player ID not found");
 }
 
 fn apply_input(player_input : &KeyState,
-               player_queue : &mut VecDeque<PieceState>,
-               fallen_blocks : &HashMap<Pivot, u8>) -> PieceState {
+               active_players : &mut ActivePlayersType,
+               fallen_blocks : &FallenBlocksType) -> PieceState {
 
-    let player_id = player_input.player_id;
-    let mut index = 0;
-    let mut new_state = loop {
-        // Let crash if not in queue for now.
-        let player = player_queue.get(index).unwrap();
-        if player.player_id == player_id {
-             break player.clone();
-        }
-        index += 1;
-    };
+
+    // make a copy of the current player state and work with this
+    let mut new_state = active_players.get(&player_input.player_id).unwrap().clone();
 
     // Move left
     if player_input.left {
@@ -116,7 +100,7 @@ fn apply_input(player_input : &KeyState,
     }
     // Only do wallkick calculations when there is a net rotation
     if rotated {
-        return wallkick(&mut new_state, clockwise, player_queue, fallen_blocks);
+        return wallkick(&mut new_state, clockwise, active_players, fallen_blocks);
     }
     else {
         return new_state;
@@ -209,7 +193,7 @@ pub fn screen_collision(piece : &PieceState) -> CollisionType {
     return CollisionType::None;
 }
 
-pub fn fallen_blocks_collision(piece : &PieceState, fallen_blocks : &HashMap<Pivot, u8>) -> bool {
+pub fn fallen_blocks_collision(piece : &PieceState, fallen_blocks : &FallenBlocksType) -> bool {
     // Check if we collide with the bottom of the screen
     let bottom_screen_collision = match screen_collision(piece) {
         CollisionType::Floor => true,
@@ -244,8 +228,8 @@ pub fn fallen_blocks_collision(piece : &PieceState, fallen_blocks : &HashMap<Piv
 
 
 fn collision(piece : &PieceState,
-             players_queue: &mut VecDeque<PieceState>,
-             fallen_blocks : &HashMap<Pivot, u8>) -> bool {
+             active_players: &mut ActivePlayersType,
+             fallen_blocks : &FallenBlocksType) -> bool {
 
     // if we hit a wall, return true
     let wall_collision = match screen_collision(piece) {
@@ -259,14 +243,13 @@ fn collision(piece : &PieceState,
         return true;
     }
 
-
     let this_shape = get_shape(piece.shape);
     let width = if this_shape.len() == 9 {3} else {4};
     let this_origin = piece.pivot;
 
     // Check if collides with other players
-    for other_piece in players_queue {
-        if piece.player_id != other_piece.player_id {
+    for (other_piece_id, other_piece) in active_players {
+        if piece.player_id != *other_piece_id {
             let other_origin = other_piece.pivot;
             let other_shape = get_shape(other_piece.shape);
             let x_offset = this_origin.x - other_origin.x;
@@ -288,10 +271,10 @@ fn collision(piece : &PieceState,
 
 fn wallkick(mut new_state : &mut PieceState,
             clockwise : bool,
-            players : &mut VecDeque<PieceState>,
-            fallen_blocks : &HashMap<Pivot, u8>) -> PieceState {
+            active_players : &mut ActivePlayersType,
+            fallen_blocks : &FallenBlocksType) -> PieceState {
     // No Change, Test 1
-    if !collision(&mut new_state, players, fallen_blocks) {
+    if !collision(&mut new_state, active_players, fallen_blocks) {
         return *new_state;
     }
     let prev_rotation = if clockwise {
@@ -316,7 +299,7 @@ fn wallkick(mut new_state : &mut PieceState,
         }
         new_state.pivot.x += x_test;
         new_state.pivot.y += y_test;
-        if !collision(&mut new_state, players, fallen_blocks) {
+        if !collision(&mut new_state, active_players, fallen_blocks) {
             return *new_state;
         }
         new_state.pivot.x -= x_test;
