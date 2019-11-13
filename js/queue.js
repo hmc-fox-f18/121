@@ -135,10 +135,11 @@ function drawMyPiece() {
 // draws the block queue which shows what the next three
 // blocks will be
 function drawBlockQueue() {
-  let children = $("#block-queue").children();
+  let children = $("#block-queue").find(".shape");
 
   for (let i = 0; i < children.length; i++) {
-    $(children[i]).find(".shape").html(getPieceHTML(game_state.piece_queue[i]));
+    // get the ith child
+    $(children).eq(i).html(getPieceHTML(game_state.piece_queue[i]));
   }
 }
 
