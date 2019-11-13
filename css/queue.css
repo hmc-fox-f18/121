@@ -1,17 +1,54 @@
 #queue {
-  width: 200px;
-}
-
-.position {
-  float: left;
-  margin-right: 10px;
-  vertical-align: center;
+  width: 175px;
+  margin-left: 10px;
+  font-family: Helvetica, sans-serif;
 }
 
 td {
   vertical-align: top;
 }
 
+/* set the stype of the titles */
+#queue p {
+  margin: 0px 0px 0px 0px;
+}
+
+/*  */
+#queue > div {
+  margin-bottom: 10px;
+  padding: 10px 10px 10px 10px;
+}
+
+#block-queue {
+  background-color: #C83770;
+}
+
+#block-queue > div {
+  height: 50px;
+}
+
+#block-queue-heading {
+  background-color: #D40055;
+  text-align: center;
+}
+
+#my-piece {
+  background-color: #D35FBC;
+  text-align: center;
+}
+
+
+/* format the 1st, 2nd, ... entries */
+.position {
+  float: right;
+  margin-right: 10px;
+  /* make the position number vertical centered */
+  margin-top: 10px;
+}
+
+
+
+/* set the styling for the different blocks */
 .tetris-block div {
   width: 20px;
   height: 20px;

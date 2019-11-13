@@ -126,7 +126,22 @@ function drawMyPiece() {
     $("#my-piece .shape").html(getPieceHTML(getMyPieceShape()));
 
     // add 1 to convert from zero-indexed to 1-indexed
-    $("#my-piece .position").html("#" + (queue_position + 1));
+    let display_position = queue_position + 1;
+
+    let display_suffix = ((position) => {
+      switch (display_position % 10) {
+        case 1:
+          return "st";
+        case 2:
+          return "nd";
+        case 3:
+          return "rd";
+        default:
+          return "th";
+      }
+    })(display_position);
+
+    $("#my-piece .position").html(display_position.toString() + display_suffix);
   } else {
     $("#my-piece").hide();
   }
