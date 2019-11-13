@@ -1,12 +1,11 @@
 extern crate slab;
-use std::collections::HashMap;
+
+use std::convert::TryInto;
 
 use crate::piece_state::{PieceState, Pivot};
-
 use crate::input::{KeyState};
+use crate::{ActivePlayersType, FallenBlocksType};
 
-use std::collections::VecDeque;
-use std::convert::TryInto;
 // TODO: Cleaner representation of pieces for calculations
 // consider classes
 const PIECE_Z : [bool ; 9] = [ true, true, false, false, true, true, false, false, false]; //0
@@ -49,9 +48,9 @@ const I_BLOCK_Y_KICKS : [ [i8 ; 8] ; 4] = [
 const ROT_LIMIT : u8 = 4;
 pub const BOARD_WIDTH : i8 = 20;
 
-pub fn update_state(active_players : &mut HashMap<usize, PieceState>,
+pub fn update_state(active_players : &mut ActivePlayersType,
                     player_input : &KeyState,
-                    fallen_blocks : &HashMap<Pivot, u8>) {
+                    fallen_blocks : &FallenBlocksType) {
 
     let player_id = player_input.player_id;
     let active_player_ids : Vec<usize> = active_players.keys().map(|key| *key).collect();
@@ -70,8 +69,8 @@ pub fn update_state(active_players : &mut HashMap<usize, PieceState>,
 }
 
 fn apply_input(player_input : &KeyState,
-               active_players : &mut HashMap<usize, PieceState>,
-               fallen_blocks : &HashMap<Pivot, u8>) -> PieceState {
+               active_players : &mut ActivePlayersType,
+               fallen_blocks : &FallenBlocksType) -> PieceState {
 
 
     // make a copy of the current player state and work with this
@@ -194,7 +193,7 @@ pub fn screen_collision(piece : &PieceState) -> CollisionType {
     return CollisionType::None;
 }
 
-pub fn fallen_blocks_collision(piece : &PieceState, fallen_blocks : &HashMap<Pivot, u8>) -> bool {
+pub fn fallen_blocks_collision(piece : &PieceState, fallen_blocks : &FallenBlocksType) -> bool {
     // Check if we collide with the bottom of the screen
     let bottom_screen_collision = match screen_collision(piece) {
         CollisionType::Floor => true,
@@ -229,8 +228,8 @@ pub fn fallen_blocks_collision(piece : &PieceState, fallen_blocks : &HashMap<Piv
 
 
 fn collision(piece : &PieceState,
-             active_players: &mut HashMap<usize, PieceState>,
-             fallen_blocks : &HashMap<Pivot, u8>) -> bool {
+             active_players: &mut ActivePlayersType,
+             fallen_blocks : &FallenBlocksType) -> bool {
 
     // if we hit a wall, return true
     let wall_collision = match screen_collision(piece) {
@@ -272,8 +271,8 @@ fn collision(piece : &PieceState,
 
 fn wallkick(mut new_state : &mut PieceState,
             clockwise : bool,
-            active_players : &mut HashMap<usize, PieceState>,
-            fallen_blocks : &HashMap<Pivot, u8>) -> PieceState {
+            active_players : &mut ActivePlayersType,
+            fallen_blocks : &FallenBlocksType) -> PieceState {
     // No Change, Test 1
     if !collision(&mut new_state, active_players, fallen_blocks) {
         return *new_state;

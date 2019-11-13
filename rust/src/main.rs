@@ -41,6 +41,9 @@ const PIECE_START_Y : i8 = 5;
 
 
 type BlockQueueType = [[u8 ; BAG_SIZE] ; NUM_BAGS ];
+type ActivePlayersType = HashMap<usize, PieceState>;
+type InactivePlayersType = VecDeque<PieceState>;
+type FallenBlocksType = HashMap<Pivot, u8>;
 
 /**
  *
@@ -52,9 +55,9 @@ type BlockQueueType = [[u8 ; BAG_SIZE] ; NUM_BAGS ];
  */
 struct Client<'a> {
     out: Sender,
-    active_players: &'a Mutex<HashMap<usize, PieceState>>,
-    inactive_players: &'a Mutex<VecDeque<PieceState>>,
-    fallen_blocks: &'a Mutex<HashMap<Pivot, u8>>,
+    active_players: &'a Mutex<ActivePlayersType>,
+    inactive_players: &'a Mutex<InactivePlayersType>,
+    fallen_blocks: &'a Mutex<FallenBlocksType>,
     timeout: Option<Timeout>,
 }
 
@@ -215,8 +218,8 @@ impl Handler for Client<'_> {
  *
  */
 fn remove_player(player_id: usize,
-                 active_players: &mut HashMap<usize, PieceState>,
-                 inactive_players: &mut VecDeque<PieceState>) {
+                 active_players: &mut ActivePlayersType,
+                 inactive_players: &mut InactivePlayersType) {
 
     // remove player from active_players
     active_players.remove(&player_id).unwrap();
@@ -240,8 +243,8 @@ fn remove_player(player_id: usize,
  *
  */
 fn move_to_inactive(player_id : usize,
-                    active_players: &mut HashMap<usize, PieceState>,
-                    inactive_players: &mut VecDeque<PieceState>) {
+                    active_players: &mut ActivePlayersType,
+                    inactive_players: &mut InactivePlayersType) {
 
     let player = active_players.remove(&player_id).unwrap();
     inactive_players.push_back(player);
@@ -259,14 +262,14 @@ pub fn next_piece(block_queue: &mut BlockQueueType,
 
     let mut rng = thread_rng();
     let index = *stored_index;
-    let next_piece = block_queue[index / 14][index % 14];
+    let next_piece = block_queue[index / BAG_SIZE][index % BAG_SIZE];
 
     // if we just used all of a bag, shuffle it so its good
     // for next time
-    if index % 14 == 13 {
-        block_queue[index / 14].shuffle(&mut rng);
+    if index % BAG_SIZE == BAG_SIZE-1 {
+        block_queue[index / BAG_SIZE].shuffle(&mut rng);
     }
-    *stored_index = (index + 1) % (14 * NUM_BAGS);
+    *stored_index = (index + 1) % (BAG_SIZE * NUM_BAGS);
     return next_piece;
 }
 
@@ -298,7 +301,7 @@ fn millis_since_epoch() -> u128 {
     return since_the_epoch.as_millis();
 }
 
-fn add_fallen_blocks(piece : &PieceState, fallen_blocks : &mut HashMap<Pivot, u8>) {
+fn add_fallen_blocks(piece : &PieceState, fallen_blocks : &mut FallenBlocksType) {
     let this_shape = get_shape(piece.shape);
     let width = if this_shape.len() == 9 {3} else {4};
     let this_origin = piece.pivot;
@@ -322,13 +325,13 @@ fn add_fallen_blocks(piece : &PieceState, fallen_blocks : &mut HashMap<Pivot, u8
     }
 }
 
-fn shift_pieces(active_players : &mut HashMap<usize, PieceState>,
-                inactive_players : &mut VecDeque<PieceState>,
-                fallen_blocks : &mut HashMap<Pivot, u8>) {
+fn shift_pieces(active_players : &mut ActivePlayersType,
+                inactive_players : &mut InactivePlayersType,
+                fallen_blocks : &mut FallenBlocksType) {
 
     let mut player_ids_to_remove : Vec<usize> = vec![];
 
-    for (player_id, mut player) in active_players.iter_mut() {
+    for (_, mut player) in active_players.iter_mut() {
         // make a copy which we shift down and check for collision
         let mut player_copy = player.clone();
         player_copy.pivot.y += 1;
@@ -352,9 +355,9 @@ fn shift_pieces(active_players : &mut HashMap<usize, PieceState>,
 }
 
 // activates exactly one piece !
-fn activate_piece(active_players : &mut HashMap<usize, PieceState>,
-                  inactive_players : &mut VecDeque<PieceState>,
-                  block_queue : &mut [ [u8 ; 14] ; NUM_BAGS ],
+fn activate_piece(active_players : &mut ActivePlayersType,
+                  inactive_players : &mut InactivePlayersType,
+                  block_queue : &mut BlockQueueType,
                   block_index : &mut usize) {
 
     // if we have more pieces in play and there are inactive pieces in the queue
@@ -365,8 +368,8 @@ fn activate_piece(active_players : &mut HashMap<usize, PieceState>,
         let piece_type: u8 = next_piece(block_queue,
                                         block_index);
 
-        // update the player's piece type
-        player.shape = piece_type;
+        player.rotation = 0; // reset the rotation
+        player.shape = piece_type; // update the player's piece type
 
         // update the player's position so it starts in the middle of the screen
         player.pivot.x = PIECE_START_X;
@@ -387,9 +390,9 @@ fn activate_piece(active_players : &mut HashMap<usize, PieceState>,
  *
  */
 fn game_frame<'a>(broadcaster: Sender,
-                  thread_active_players: Arc<Mutex<HashMap<usize, PieceState>>>,
-                  thread_inactive_players: Arc<Mutex<VecDeque<PieceState>>>,
-                  thread_fallen_blocks : Arc<Mutex<HashMap<Pivot, u8>>>) {
+                  thread_active_players: Arc<Mutex<ActivePlayersType>>,
+                  thread_inactive_players: Arc<Mutex<InactivePlayersType>>,
+                  thread_fallen_blocks : Arc<Mutex<FallenBlocksType>>) {
 
     // the time when we last shifted the pieces down
     let mut last_shift_time : u128 = 0;
@@ -424,7 +427,7 @@ fn game_frame<'a>(broadcaster: Sender,
         }).collect();
 
         // Get the active players from the front of the deque
-        let states : Vec<&PieceState> = active_players.iter().map(|(player_id, player)| player).collect();
+        let states : Vec<&PieceState> = active_players.iter().map(|(_, player)| player).collect();
 
         // get the player ids of the players who are in the queue
         let inactive_player_ids : Vec<usize> =
