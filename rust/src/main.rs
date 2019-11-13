@@ -32,6 +32,7 @@ const FRAME_TIME : time::Duration = time::Duration::from_millis(FRAME_MILLIS);
 const TIMEOUT_MILLIS : u64 = 10000;
 
 const NUM_BAGS : usize = 3;
+const BAG_SIZE : usize = 14;
 const MAX_NUM_ACTIVE : usize = 2;
 // how long it takes between when pieces move down 1 square
 const SHIFT_PERIOD_MILLIS : u128 = 1000;
@@ -77,8 +78,11 @@ impl Handler for Client<'_> {
 
         // Player doesn't exist, add to players list
         // TODO: Genericize initial piece state
-        let piece_type: u8 = next_piece(self.block_queue,
-                                            self.block_index);
+        let mut block_queue = self.block_queue.lock().unwrap();
+        let mut block_index = self.block_index.lock().unwrap();
+
+        let piece_type: u8 = next_piece(&mut block_queue, &mut block_index);
+
         let new_piece_state = PieceState {
             shape: piece_type,
             pivot: Pivot {
@@ -276,18 +280,38 @@ fn move_to_inactive(player_id : usize, players: &mut VecDeque<PieceState>, inact
  *  TODO: Implement Tetris bag generation for better distribution
  *
  */
-pub fn next_piece(thread_block_queue: &Mutex<[ [u8 ; 14] ; NUM_BAGS ]>,
-                thread_block_index: &Mutex<usize>) -> u8 {
+pub fn next_piece(block_queue: &mut [[u8 ; 14] ; NUM_BAGS ],
+                  stored_index: &mut usize) -> u8 {
+
     let mut rng = thread_rng();
-    let mut stored_index = thread_block_index.lock().unwrap();
     let index = *stored_index;
-    let mut block_queue = thread_block_queue.lock().unwrap();
     let next_piece = block_queue[index / 14][index % 14];
+
+    // if we just used all of a bag, shuffle it so its good
+    // for next time
     if index % 14 == 13 {
         block_queue[index / 14].shuffle(&mut rng);
     }
     *stored_index = (index + 1) % (14 * NUM_BAGS);
     return next_piece;
+}
+
+/*
+Gets the next fourteen pieces that will be put into play and returns them as a Vec.
+*/
+pub fn peek_next_pieces(block_queue: &[ [u8 ; 14] ; NUM_BAGS ],
+                   block_index: usize) -> Vec<u8> {
+
+    let mut next_bag = Vec::new();
+
+    for global_index in block_index..(block_index + BAG_SIZE) {
+        let bag = (global_index / BAG_SIZE) % NUM_BAGS;
+        let index = global_index % BAG_SIZE;
+
+        next_bag.push(block_queue[bag][index]);
+    }
+
+    return next_bag;
 }
 
 
@@ -354,11 +378,21 @@ fn shift_pieces(players : &mut VecDeque<PieceState>, inactive_players : &mut Vec
 }
 
 // activates exactly one piece !
-fn activate_piece(players : &mut VecDeque<PieceState>, inactive_players : &mut VecDeque<PieceState>) {
+fn activate_piece(players : &mut VecDeque<PieceState>,
+                  inactive_players : &mut VecDeque<PieceState>,
+                  block_queue : &mut [ [u8 ; 14] ; NUM_BAGS ],
+                  block_index : &mut usize) {
 
     // if we have more pieces in play and there are inactive pieces in the queue
     if MAX_NUM_ACTIVE - players.len() > 0 && inactive_players.len() > 0 {
         let mut player = inactive_players.pop_front().unwrap();
+
+        // get the new piece type
+        let piece_type: u8 = next_piece(block_queue,
+                                        block_index);
+
+        // update the player's piece type
+        player.shape = piece_type;
 
         // update the player's position so it starts in the middle of the screen
         player.pivot.x = PIECE_START_X;
@@ -387,30 +421,19 @@ fn game_frame<'a>(broadcaster: Sender,
     loop {
         let mut player_queue = thread_player_queue.lock().unwrap();
         let mut inactive_player_queue = thread_inactive_queue.lock().unwrap();
-        let mut fallen_blocks =thread_fallen_blocks.lock().unwrap();
+        let mut fallen_blocks = thread_fallen_blocks.lock().unwrap();
+        let mut block_queue = thread_block_queue.lock().unwrap();
+        let mut block_index = thread_block_index.lock().unwrap();
 
         // drop the pieces 1 square if they need to be dropped
         let current_time = millis_since_epoch();
         if current_time - last_shift_time > SHIFT_PERIOD_MILLIS {
 
-            // print an update about who's in what queue:
-            print!("active collection: ");
-            for active_player in player_queue.iter() {
-                print!("{}, ", active_player.player_id);
-            }
-            println!("");
-
-            print!("inactive queue: [");
-            for inactive_player in inactive_player_queue.iter() {
-                print!("{}, ", inactive_player.player_id);
-            }
-            println!("]");
-
             // check to make sure shift works
             shift_pieces(&mut player_queue, &mut inactive_player_queue, &mut fallen_blocks);
 
             // actives a single piece
-            activate_piece(&mut player_queue, &mut inactive_player_queue);
+            activate_piece(&mut player_queue, &mut inactive_player_queue, &mut block_queue, &mut block_index);
             last_shift_time = current_time;
         }
 
@@ -421,27 +444,31 @@ fn game_frame<'a>(broadcaster: Sender,
             };
         }).collect();
 
-        // // for debugging
-        // print!("blocks: ");
-        // for block in fallen_blocks_list.iter() {
-        //     print!("({}, {}), ", block.position.x, block.position.y);
-        // }
-        // print!("\n");
-
         // Get the active players from the front of the deque
         let states : Vec<&PieceState> = player_queue.iter().collect();
+
+        // get the player ids of the players who are in the queue
+        let inactive_player_ids : Vec<usize> =
+            inactive_player_queue.iter().map(|player| player.player_id).collect();
+
+        // get the next 14 pieces that will be deployed
+        let next_pieces = peek_next_pieces(&block_queue, *block_index);
+
 
         let response = json!({
             "piece_states": states,
             "type": "gameState",
             "fallen_blocks": fallen_blocks_list,
-
+            "player_queue": inactive_player_ids,
+            "piece_queue": next_pieces,
         });
 
         // Unlock players so main thread can take in player updates
         drop(player_queue);
         drop(inactive_player_queue);
         drop(fallen_blocks);
+        drop(block_queue);
+        drop(block_index);
 
         // Send game state update to all connected clients
         match broadcaster.send(response.to_string()) {
