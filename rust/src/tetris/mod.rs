@@ -199,9 +199,9 @@ pub fn screen_collision(piece : &PieceState) -> CollisionType {
             let abs_y = y + this_origin.y;
 
             if read_block(this_shape, x, y, piece.rotation) {
-                if (abs_x >= BOARD_WIDTH || abs_x < 0) { return CollisionType::Wall };
-                if (abs_y < 0) { return CollisionType::Ceiling; }
-                if (abs_y >= BOARD_WIDTH) { return CollisionType::Floor; }
+                if abs_x >= BOARD_WIDTH || abs_x < 0 { return CollisionType::Wall };
+                if abs_y < 0 { return CollisionType::Ceiling; }
+                if abs_y >= BOARD_WIDTH { return CollisionType::Floor; }
             }
         }
     }
@@ -252,7 +252,7 @@ fn collision(piece : &PieceState,
         CollisionType::Wall => true,
         _ => false,
     };
-    if (wall_collision) { return true; }
+    if wall_collision { return true; }
 
     // if we hit a fallen block, return true
     if fallen_blocks_collision(piece, fallen_blocks) {

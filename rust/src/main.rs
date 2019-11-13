@@ -19,7 +19,6 @@ use rand::prelude::SliceRandom;
 use std::sync::{Arc, Mutex};
 use std::{time, thread};
 use std::collections::VecDeque;
-use std::cmp::min;
 
 use ws::{CloseCode, Handler, Handshake, Message, Result,
      Sender, WebSocket, util::Token, util::Timeout};
