@@ -54,7 +54,8 @@ struct Client<'a> {
     inactive_queue: &'a Mutex<VecDeque<PieceState>>,
     block_queue: &'a Mutex<[ [u8 ; 14] ; NUM_BAGS ]>,
     block_index: &'a Mutex<usize>,
-    timeout: Option<Timeout>
+    fallen_blocks: &'a Mutex<HashMap<Pivot, u8>>,
+    timeout: Option<Timeout>,
 }
 
 impl Handler for Client<'_> {
@@ -73,7 +74,7 @@ impl Handler for Client<'_> {
         println!("Request: {}", shake.request);
         let player_id : usize = self.out.token().into();
         let response;
-        
+
         // Player doesn't exist, add to players list
         // TODO: Genericize initial piece state
         let piece_type: u8 = next_piece(self.block_queue,
@@ -119,11 +120,13 @@ impl Handler for Client<'_> {
             match serde_json::from_str::<KeyState>(&text) {
                 Ok(mut player_input) => {
                     let mut players_queue = self.player_queue.lock().unwrap();
+                    let fallen_blocks = self.fallen_blocks.lock().unwrap();
+
                     // Don't trust input, ensure labelled properly
                     let player_id : usize = self.out.token().into();
                     player_input.player_id = player_id;
                     // Update state for player
-                    update_state(&mut players_queue, &player_input);
+                    update_state(&mut players_queue, &player_input, &fallen_blocks);
                     return Ok(());
                 }
                 Err(e) => {
@@ -372,21 +375,19 @@ fn activate_piece(players : &mut VecDeque<PieceState>, inactive_players : &mut V
  *
  */
 fn game_frame<'a>(broadcaster: Sender,
-                thread_block_queue: Arc<Mutex<[ [u8 ; 14] ; NUM_BAGS ]>>,
-                thread_block_index: Arc<Mutex<usize>>,
-                thread_player_queue: Arc<Mutex<VecDeque<PieceState>>>,
-                thread_inactive_queue: Arc<Mutex<VecDeque<PieceState>>>) {
+                  thread_block_queue: Arc<Mutex<[ [u8 ; 14] ; NUM_BAGS ]>>,
+                  thread_block_index: Arc<Mutex<usize>>,
+                  thread_player_queue: Arc<Mutex<VecDeque<PieceState>>>,
+                  thread_inactive_queue: Arc<Mutex<VecDeque<PieceState>>>,
+                  thread_fallen_blocks : Arc<Mutex<HashMap<Pivot, u8>>>) {
 
     // the time when we last shifted the pieces down
     let mut last_shift_time : u128 = 0;
 
-    // stores PieceStates for all of the pieces that have
-    // fallen to the bottom of the screen
-    let mut fallen_blocks = HashMap::new();
-
     loop {
         let mut player_queue = thread_player_queue.lock().unwrap();
         let mut inactive_player_queue = thread_inactive_queue.lock().unwrap();
+        let mut fallen_blocks =thread_fallen_blocks.lock().unwrap();
 
         // drop the pieces 1 square if they need to be dropped
         let current_time = millis_since_epoch();
@@ -434,11 +435,13 @@ fn game_frame<'a>(broadcaster: Sender,
             "piece_states": states,
             "type": "gameState",
             "fallen_blocks": fallen_blocks_list,
+
         });
 
         // Unlock players so main thread can take in player updates
         drop(player_queue);
         drop(inactive_player_queue);
+        drop(fallen_blocks);
 
         // Send game state update to all connected clients
         match broadcaster.send(response.to_string()) {
@@ -464,16 +467,16 @@ fn game_frame<'a>(broadcaster: Sender,
  */
 fn main() {
     let block_queue = Arc::new(Mutex::new([[0, 1, 2, 3, 4, 5, 6, 0, 1, 2, 3, 4, 5, 6] ; NUM_BAGS]));
-
     let block_index = Arc::new(Mutex::new(0));
-
     let player_queue = Arc::new(Mutex::new(VecDeque::new()));
     let inactive_queue = Arc::new(Mutex::new(VecDeque::new()));
+    let fallen_blocks = Arc::new(Mutex::new(HashMap::new()));
 
     let thread_block_queue = block_queue.clone();
     let thread_block_index = block_index.clone();
     let thread_player_queue = player_queue.clone();
     let thread_inactive_queue = inactive_queue.clone();
+    let thread_fallen_blocks = fallen_blocks.clone();
 
     // Code that initializes client structs
     let server_gen  = |out : Sender| {
@@ -483,7 +486,8 @@ fn main() {
             player_queue: &player_queue,
             inactive_queue: &inactive_queue,
             block_queue: &block_queue,
-            block_index: &block_index
+            block_index: &block_index,
+            fallen_blocks: &fallen_blocks,
         }
     };
 
@@ -503,7 +507,8 @@ fn main() {
                    thread_block_queue,
                    thread_block_index,
                    thread_player_queue,
-                   thread_inactive_queue);
+                   thread_inactive_queue,
+                   thread_fallen_blocks);
     });
     // Run the server on this thread
     socket.run().unwrap();
