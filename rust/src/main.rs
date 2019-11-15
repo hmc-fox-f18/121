@@ -21,14 +21,12 @@ use std::{time, thread};
 use std::collections::VecDeque;
 
 use ws::{CloseCode, Handler, Handshake, Message, Result,
-     Sender, WebSocket, util::Token, util::Timeout};
+     Sender, WebSocket, util::Token, util::Timeout, OpCode, Frame, Error};
 
 use serde_json::json;
 
 const FRAME_MILLIS : u64 = (1000.0 / 60.0) as u64;
 const FRAME_TIME : time::Duration = time::Duration::from_millis(FRAME_MILLIS);
-
-const TIMEOUT_MILLIS : u64 = 10000;
 
 const NUM_BAGS : usize = 3;
 const BAG_SIZE : usize = 14;
@@ -38,6 +36,13 @@ const SHIFT_PERIOD_MILLIS : u128 = 500;
 
 const PIECE_START_X : i8 = 5;
 const PIECE_START_Y : i8 = 5;
+
+
+const DISCONNECT_MILLIS : u64 = 3000; // 3 seconds
+const PING_MILLIS : u64 = 1000; // 1 second
+
+const PING: Token = Token(1);
+const DISCONNECT: Token = Token(2);
 
 
 type BlockQueueType = [[u8 ; BAG_SIZE] ; NUM_BAGS ];
@@ -60,6 +65,11 @@ struct Client<'a> {
     fallen_blocks: &'a Mutex<FallenBlocksType>,
     timeout: Option<Timeout>,
 }
+
+// For accessing the default handler implementation
+struct DefaultHandler;
+
+impl Handler for DefaultHandler {}
 
 impl Handler for Client<'_> {
     /**
@@ -99,19 +109,14 @@ impl Handler for Client<'_> {
             "type": "init",
         });
 
-        // setup ping every second
-        self.out.timeout(TIMEOUT_MILLIS, self.out.token()).unwrap();
+        // start pinging the client to detect if disconnected
+        self.out.timeout(PING_MILLIS, PING).unwrap();
+
         self.out.send(response.to_string())
     }
 
     //TODO: Deal with different messages if applicable
     fn on_message(&mut self, msg: Message) -> Result<()> {
-
-        match self.out.timeout(TIMEOUT_MILLIS, self.out.token()) {
-            Ok(_) => {},
-            Err(e) => println!("Error registering new timeout: {}", e)
-        };
-
         // Parse the msg as text
         if let Ok(text) = msg.into_text() {
             // Try to parse the message as a piece state
@@ -162,6 +167,10 @@ impl Handler for Client<'_> {
         remove_player(player_id, &mut *players, &mut *inactive_players);
     }
 
+    fn on_error(&mut self, err: Error) {
+        println!("The server encountered an error: {:?}", err);
+    }
+
     /**
      *
      *  Method invoked when a client times out.
@@ -170,43 +179,86 @@ impl Handler for Client<'_> {
      *  from the game state.
      *
      */
-    fn on_timeout(&mut self, _event: Token) -> Result<()> {
-        // close the connection, send Error close code because we shouldn't
-        // hit a timeout unless the server dies
-        // this will trigger on_close which will remove the player
-        match self.out.ping(vec![]) {
-            Ok(()) => self.out.timeout(TIMEOUT_MILLIS, self.out.token()).unwrap(),
-            _ => self.out.close(CloseCode::Error).unwrap(),
-        }
+    fn on_timeout(&mut self, event: Token) -> Result<()> {
+        // if the event is PING, send a ping message and setup the next timeout
+        match event {
+            PING => {
+                println!("ping timeout called");
+
+                match self.out.ping(vec![]) {
+                    Err(_) => { panic!("Unable to send ping."); },
+                    _ => { },
+                };
+                println!("sent ping");
+
+                self.out.timeout(PING_MILLIS, PING).unwrap();
+
+                // if there is currently no disconnect timeout, start one
+                if self.timeout.is_none() {
+                    self.out.timeout(DISCONNECT_MILLIS, DISCONNECT).unwrap();
+                }
+            },
+            DISCONNECT => {
+                println!("disconnect timeout called");
+
+                /*
+                TODO: stop listening to this client here (if I could only figure out how!)
+
+                If the client eventually reconnects, close will be the first message they see
+                and they will respond with a close. The our on_close method will be called and
+                this connection will be destroyed.
+
+                We call remove_player now so that the other clients don't have to worry about
+                this inactive player. Remove_player will be called again in the on_close method,
+                but its been written so that it won't do anything harmful if called twice on
+                the same player.
+                */
+                self.out.close(CloseCode::Away);
+
+                let player_id : usize = self.out.token().into();
+                let mut players = self.active_players.lock().unwrap();
+                let mut inactive_players = self.inactive_players.lock().unwrap();
+                remove_player(player_id, &mut *players, &mut *inactive_players);
+            },
+            Token(_) => panic!("Unexpected timoeout token."),
+        };
+
         // Note: timeouts will actually occur if the client refreshes
         // the page
         Ok(())
     }
 
-    /**
-     *
-     *  Code called when a new timeout event is created.
-     *
-     *  Should be usable to cancel previous timeouts as data is
-     *  received from the client
-     *
-     *  //TODO: Make this actually work properly
-     *
-     */
-    fn on_new_timeout(&mut self, _event: Token, timeout: Timeout) -> Result<()> {
-        // take() transfers ownership of the underlying data stored in self.timeout
-        if let Some(t) = self.timeout.take() {
-            // if cancel is successful, set we don't have a timeout until
-            // on_new_timeout is called
-            // if cancel fails, the old timeout is still active
-            match self.out.cancel(t) {
-                Ok(_) => self.timeout = None,
-                Err(_) => {},
-            };
+    fn on_new_timeout(&mut self, event: Token, timeout: Timeout) -> Result<()> {
+        if event == PING {
+            println!("ping timeout created");
         }
 
-        self.timeout = Some(timeout);
+        if event == DISCONNECT {
+            println!("disconnect timeout created");
+            assert!(self.timeout.is_none()); // make sure that self.timeout is None
+            self.timeout = Some(timeout);
+        }
+
         return Ok(());
+    }
+
+    fn on_frame(&mut self, frame: Frame) -> Result<Option<Frame>> {
+        if frame.opcode() == OpCode::Pong {
+            println!("received pong");
+
+            // if there is a timeout, cancel it
+            if let Some(t) = self.timeout.take() {
+                match self.out.cancel(t) {
+                    Err(_) => { panic!("Unable to cancel timeout."); },
+                    _ => { },
+                };
+                println!("cancelled disconnect timeout");
+                self.timeout = None;
+            }
+        }
+
+        // Run default frame validation
+        DefaultHandler.on_frame(frame)
     }
 }
 
@@ -222,7 +274,10 @@ fn remove_player(player_id: usize,
                  inactive_players: &mut InactivePlayersType) {
 
     // remove player from active_players
-    active_players.remove(&player_id).unwrap();
+    match active_players.remove(&player_id) {
+        None => println!("{} wasn't in active_players", player_id),
+        Some(_) => {},
+    };
 
     // remove player from inactive_players
     let mut inactive_remove_index = None;
@@ -232,8 +287,10 @@ fn remove_player(player_id: usize,
         }
     }
     match inactive_remove_index {
-        Some(index) => { inactive_players.remove(index); },
-        None => { },
+        // use .unwrap() because we are certain that a piece with inactive_remove_index
+        // is in inactive_players
+        Some(index) => { inactive_players.remove(index).unwrap(); },
+        None => { println!("{} wasn't in inactive_players", player_id); },
     };
 }
 
