@@ -226,6 +226,55 @@ pub fn fallen_blocks_collision(piece : &PieceState, fallen_blocks : &FallenBlock
     return false;
 }
 
+// Clears any lines necessary, modifying fallen_blocks as appropriate
+pub fn clear_lines(fallen_blocks : &mut FallenBlocksType) {
+    let mut offset = 0;
+    for row in (0..BOARD_WIDTH).rev() {
+        let mut is_full = true;
+        for col in 0..BOARD_WIDTH {
+            let pivot = &Pivot {
+                x: col,
+                y: row,
+            };
+            if !fallen_blocks.contains_key(pivot) {
+                is_full = false;
+                break;
+            }
+        }
+
+        // Need to clear the row if it is full
+        if is_full {
+            offset += 1;
+            for col in 0..BOARD_WIDTH {
+                let pivot = &Pivot {
+                    x: col,
+                    y: row,
+                };
+                fallen_blocks.remove(pivot);
+            }
+        } else if offset != 0 {
+            // If did not clear, add to new_fallen_blocks
+            for col in 0..BOARD_WIDTH {
+                let pivot = &Pivot {
+                    x: col,
+                    y: row,
+                };
+                let fallen_pivot = Pivot {
+                    x: col,
+                    y: row + offset,
+                };
+
+                match fallen_blocks.get(pivot) {
+                    Some(shape) => {
+                        fallen_blocks.insert(fallen_pivot, *shape)
+                    },
+                    None => None
+                };
+                fallen_blocks.remove(pivot);
+            }
+        }
+    }
+}
 
 fn collision(piece : &PieceState,
              active_players: &mut ActivePlayersType,
