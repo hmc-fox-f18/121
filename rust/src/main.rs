@@ -10,7 +10,7 @@ mod tests;
 
 use crate::piece_state::{PieceState, Pivot, BlockState};
 use crate::input::{KeyState};
-use crate::tetris::{update_state, fallen_blocks_collision, read_block, get_shape};
+use crate::tetris::{update_state, fallen_blocks_collision, clear_lines, read_block, get_shape};
 
 use std::time::{SystemTime, UNIX_EPOCH};
 
@@ -34,10 +34,12 @@ const NUM_BAGS : usize = 3;
 const BAG_SIZE : usize = 14;
 const MAX_NUM_ACTIVE : usize = 2;
 // how long it takes between when pieces move down 1 square
-const SHIFT_PERIOD_MILLIS : u128 = 500;
+const SHIFT_PERIOD_MILLIS : u128 = 250;
 
-const PIECE_START_X : i8 = 5;
-const PIECE_START_Y : i8 = 5;
+const PIECE_START_X_LEFT : i8 = 5;
+const PIECE_START_Y_LEFT : i8 = 5;
+const PIECE_START_X_RIGHT : i8 = 12;
+const PIECE_START_Y_RIGHT : i8 = 1;
 
 
 type BlockQueueType = [[u8 ; BAG_SIZE] ; NUM_BAGS ];
@@ -371,9 +373,15 @@ fn activate_piece(active_players : &mut ActivePlayersType,
         player.rotation = 0; // reset the rotation
         player.shape = piece_type; // update the player's piece type
 
-        // update the player's position so it starts in the middle of the screen
-        player.pivot.x = PIECE_START_X;
-        player.pivot.y = PIECE_START_Y;
+        // Alternate between 2 start positions
+        if *block_index % 2 == 0 {
+            player.pivot.x = PIECE_START_X_LEFT;
+            player.pivot.y = PIECE_START_Y_LEFT;
+        } else {
+            player.pivot.x = PIECE_START_X_RIGHT;
+            player.pivot.y = PIECE_START_Y_RIGHT;
+        }
+
 
         // make sure that we didn't insert a duplicate into the set
         match active_players.insert(player.player_id, player) {
@@ -417,6 +425,33 @@ fn game_frame<'a>(broadcaster: Sender,
             // actives a single piece
             activate_piece(&mut active_players, &mut inactive_players, &mut block_queue, &mut block_index);
             last_shift_time = current_time;
+        }
+
+        // Clear all completed fallen lines
+        clear_lines(&mut fallen_blocks);
+
+        // Test for game-over criteria
+        // If either starting point is blocked, end the game
+        let start_left_pivot = &Pivot {
+            x: PIECE_START_X_LEFT,
+            y: PIECE_START_Y_LEFT
+        };
+        let start_right_pivot = &Pivot {
+            x: PIECE_START_X_LEFT,
+            y: PIECE_START_Y_LEFT
+        };
+
+        if fallen_blocks.contains_key(start_left_pivot) || fallen_blocks.contains_key(start_right_pivot) {
+            // Trigger Game Over
+            let response = json!({
+                "type": "gameOver"
+            });
+            // Send game state update to all connected clients
+            match broadcaster.send(response.to_string()) {
+                Ok(v) => v,
+                Err(e) => println!("Unable to broadcast info: {}", e)
+            };
+            break;
         }
 
         let fallen_blocks_list : Vec<BlockState> = fallen_blocks.iter().map(|(pivot, shape)| {
