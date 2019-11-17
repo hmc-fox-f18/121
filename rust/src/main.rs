@@ -427,7 +427,32 @@ fn game_frame<'a>(broadcaster: Sender,
             last_shift_time = current_time;
         }
 
+        // Clear all completed fallen lines
         clear_lines(&mut fallen_blocks);
+
+        // Test for game-over criteria
+        // If either starting point is blocked, end the game
+        let start_left_pivot = &Pivot {
+            x: PIECE_START_X_LEFT,
+            y: PIECE_START_Y_LEFT
+        };
+        let start_right_pivot = &Pivot {
+            x: PIECE_START_X_LEFT,
+            y: PIECE_START_Y_LEFT
+        };
+
+        if fallen_blocks.contains_key(start_left_pivot) || fallen_blocks.contains_key(start_right_pivot) {
+            // Trigger Game Over
+            let response = json!({
+                "type": "gameOver"
+            });
+            // Send game state update to all connected clients
+            match broadcaster.send(response.to_string()) {
+                Ok(v) => v,
+                Err(e) => println!("Unable to broadcast info: {}", e)
+            };
+            break;
+        }
 
         let fallen_blocks_list : Vec<BlockState> = fallen_blocks.iter().map(|(pivot, shape)| {
             return BlockState {

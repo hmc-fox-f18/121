@@ -74,4 +74,12 @@ function draw_frame() {
     drawPieces();
     drawFallenBlocks();
     updateQueue();
+
+    // Display Game Over if board has filled
+    if (gameOver) {
+      ctx.font = "30px Arial";
+      ctx.fillStyle = "white";
+      ctx.textAlign = "center";
+      ctx.fillText("Game Over!", canvasWidth/2.0, canvasHeight/2.0);
+    }
 }

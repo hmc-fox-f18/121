@@ -38,6 +38,9 @@ function initSocket(connectionCallback) {
             }
             break;
 
+          case 'gameOver':
+            gameOver = true;
+            break;
           default:
             console.error(`Invalid message type ${message.type} received from server.`);
         }
