@@ -14,7 +14,12 @@ function getMyPiece() {
 @connectionCallback: function called game_state has been receive from server
 */
 function initSocket(connectionCallback) {
-    socket = new WebSocket("ws://127.0.0.1:3012");
+    let hostname = location.hostname == "" ? "localhost" : location.hostname;
+
+    let websocketAddress = `ws://${hostname}:3012`;
+    console.log(`Connecting to WebSocket at: ${websocketAddress}`);
+
+    socket = new WebSocket(websocketAddress);
     let made_callback = false;
 
     socket.onopen = function(e) {
