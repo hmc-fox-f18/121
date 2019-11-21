@@ -143,9 +143,11 @@ class PlayerPiece extends Piece {
         var is_overlap = false;
 
         this.get_occupied_blocks((my_x, my_y) => {
+            console.log(game_state.fallen_blocks);
+
             game_state.fallen_blocks.forEach((fallen_block) => {
-                if (fallen_block.position.x == my_x &&
-                    fallen_block.position.y == my_y) {
+                if (fallen_block.x == my_x &&
+                    fallen_block.y == my_y) {
                     is_overlap = true;
                 }
             });

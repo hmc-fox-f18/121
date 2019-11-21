@@ -14,7 +14,7 @@ function clearBoard() {
 }
 
 function drawShadowBlock(x, y) {
-    ctx.fillStyle = "#999999FF";
+    ctx.fillStyle = "#444444FF";
 
     // Draw the blocks in the shape
     let posX = canvasWidth * x / BOARD_WIDTH;
@@ -69,25 +69,15 @@ function drawMyPieceShadow() {
     let my_piece = getMyPiece();
 
     // sometimes we'll be in the queue and won't have a shadow to draw
-    if (my_piece == undefined) {
-        console.log("my piece is undefined");
-        return;
-    }
+    if (my_piece == undefined) return;
 
     // if for some reason my piece is currently colliding with something,
     // don't draw a shadow
-    if (my_piece.collision()) {
-        console.log("my piece collided with something");
-        return;
-    }
-
-    console.log("ready to go.");
-
+    if (my_piece.collision()) return;
 
     // make a test piece and move it down until it hits something,
     // then back up by 1 block so we are no longer colliding
     let test_piece = my_piece.deepCopy();
-
 
 
     while (!test_piece.collision()) {
@@ -119,8 +109,8 @@ function initGrid() {
 
 function draw_frame() {
     clearBoard();
+    drawMyPieceShadow(); // draw shadow before piece
     drawPieces();
-    drawMyPieceShadow();
     drawFallenBlocks();
     updateQueue();
 
