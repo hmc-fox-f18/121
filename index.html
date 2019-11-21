@@ -13,7 +13,11 @@
 
     <meta charset="utf-8">
 
+    <link rel="stylesheet" href="css/style.css">
     <link rel="stylesheet" href="css/queue.css">
+    <link rel="stylesheet" href="css/modal.css">
+
+    <!-- <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css" integrity="sha384-BVYiiSIFeK1dGmJRAkycuHAHRg32OmUcww7on3RYdg4Va+PmSTsz/K68vbdEjh4u" crossorigin="anonymous"> -->
 </head>
 
 <body onload="init();">
@@ -61,4 +65,18 @@
     </tr>
   </table>
 
+    <div id="restart-modal" class="modal">
+        <div class="modal-content">
+            <h1>Game Over</h1>
+            <button class="button-large" onclick="restart_game()" type="button">Play Again?</button>
+        </div>
+    </div>
+
+    <div id="disconnect-modal" class="modal">
+        <div class="modal-content">
+            <h1>Connection Lost</h1>
+            <p id="error-message"></p>
+            <button class="button-large" onclick="restart_game()" type="button">Play Again?</button>
+        </div>
+    </div>
 </body>
