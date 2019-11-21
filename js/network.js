@@ -53,17 +53,14 @@ function initSocket(connectionCallback) {
 
     socket.onclose = function(event) {
       socketOpen = false;
-      // if (event.wasClean) {
-      //     alert(`[close] Connection closed cleanly, code=${event.code} reason=${event.reason}`);
-      // } else {
-      //   // e.g. server process killed or network down
-      //   // event.code is usually 1006 in this case
-      //   alert('[close] Connection died');
-      // }
-    };
 
+      $("#error-message").text(`The server closed the connection.`);
+      $("#disconnect-modal").show();
+    };
+    
     socket.onerror = function(error) {
-      // alert(`[error] ${error.message}`);
+        $("#error-message").text(`Connection error: ${error.message}`);
+        $("#disconnect-modal").show();
     };
 }
 

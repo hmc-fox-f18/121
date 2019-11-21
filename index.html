@@ -66,7 +66,15 @@
     <div id="restart-modal" class="modal">
         <div class="modal-content">
             <h1>Game Over</h1>
-            <button class="button-large" onclick="restart_game()" type="button">Play Again</button>
+            <button class="button-large" onclick="restart_game()" type="button">Play Again?</button>
+        </div>
+    </div>
+
+    <div id="disconnect-modal" class="modal">
+        <div class="modal-content">
+            <h1>Connection Lost</h1>
+            <p id="error-message"></p>
+            <button class="button-large" onclick="restart_game()" type="button">Play Again?</button>
         </div>
     </div>
 </body>
