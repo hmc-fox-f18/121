@@ -2,46 +2,57 @@
 
 // Actual Code
 function clearBoard() {
-    // Clear Screen
+    // white gridlines with black background
     ctx.fillStyle = bgColor;
+    ctx.strokeStyle = "#FFFFFF";
+    ctx.lineWidth   = 1;
+    ctx.shadowBlur = 0;
+
     ctx.fillRect(0, 0, canvasWidth, canvasHeight);
     //Draw Gridlines
     ctx.stroke();
 }
 
-function drawBlock(x, y, color, glow) {
-  ctx.fillStyle = color;
-  if (glow) {
-    ctx.shadowColor = '#ffffffee';
-    ctx.shadowBlur = 40;
-  }
-  else {
-    ctx.shadowColor = '#00000000';
-    ctx.shadowBlur = 0;
-  }
+function drawShadowBlock(x, y) {
+    ctx.fillStyle = "#444444FF";
 
-  // Draw the blocks in the shape
-  let posX = canvasWidth * x / boardWidth;
-  let posY = canvasHeight * y / boardWidth;
-  ctx.fillRect(posX, posY, blockWidth, blockHeight);
+    // Draw the blocks in the shape
+    let posX = canvasWidth * x / BOARD_WIDTH;
+    let posY = canvasHeight * y / BOARD_WIDTH;
+    ctx.fillRect(posX, posY, blockWidth, blockHeight);
+}
+
+function drawBlock(x, y, color, glow) {
+    ctx.fillStyle = color;
+
+    // if piece is glowing, render with a shadow
+    if (glow) {
+        ctx.shadowColor = '#FFFF00ee';
+        ctx.shadowBlur = 20;
+    }
+    else {
+        ctx.shadowColor = '#00000000';
+        ctx.shadowBlur = 0;
+    }
+
+    // Draw the blocks in the shape
+    let posX = canvasWidth * x / BOARD_WIDTH;
+    let posY = canvasHeight * y / BOARD_WIDTH;
+    ctx.fillRect(posX, posY, blockWidth, blockHeight);
+
+    // set the painting context again for no shadow
+    ctx.shadowBlur = 0;
 }
 
 function drawPieces() {
-    game_state.piece_states.forEach((piece_state) => {
-
-      let [x, y, color, width, rot_shape] = piece_state.getPiece().getRenderInfo();
+    game_state.pieces.forEach((piece) => {
+      let glow = piece.player_id == my_player_id;
 
       // Draw the blocks in the shape
-      for (i in rot_shape) {
-          if (rot_shape[i] == 1) {
-              let x = (piece_state.pivot.x + i % width);
-              let y = (piece_state.pivot.y + Math.floor(i / width));
-              let glow = piece_state.player_id == my_player_id;
-
-              drawBlock(x, y, color, glow);
-          }
-      }
-    });
+      piece.get_occupied_blocks((x, y) => {
+          drawBlock(x, y, piece.color, glow);
+      });
+  });
 }
 
 function drawFallenBlocks() {
@@ -50,19 +61,46 @@ function drawFallenBlocks() {
     let color = shapes[fallen_block.original_shape].color;
 
     // no glow on fallen blocks
-    drawBlock(fallen_block.x, fallen_block.y, color, fallen_block.false);
+    drawBlock(fallen_block.x, fallen_block.y, color, false);
   });
+}
+
+function drawMyPieceShadow() {
+    let my_piece = getMyPiece();
+
+    // sometimes we'll be in the queue and won't have a shadow to draw
+    if (my_piece == undefined) return;
+
+    // if for some reason my piece is currently colliding with something,
+    // don't draw a shadow
+    if (my_piece.collision()) return;
+
+    // make a test piece and move it down until it hits something,
+    // then back up by 1 block so we are no longer colliding
+    let test_piece = my_piece.deepCopy();
+
+
+    while (!test_piece.collision()) {
+        test_piece.y += 1;
+    }
+    test_piece.y -= 1;
+
+
+    // Draw the blocks in the shape
+    test_piece.get_occupied_blocks((x, y) => {
+        drawShadowBlock(x, y);
+    });
 }
 
 function initGrid() {
     // Draw Vertical Gridlines
-    for(let i = 0; i <= boardWidth; ++i) {
+    for(let i = 0; i <= BOARD_WIDTH; ++i) {
         let posX = i * blockWidth;
         ctx.moveTo(posX, 0);
         ctx.lineTo(posX, canvasHeight);
     }
     // Draw Horizontal Gridlines
-    for(let i = 0; i <= boardWidth; ++i) {
+    for(let i = 0; i <= BOARD_WIDTH; ++i) {
         let posY = i * blockHeight;
         ctx.moveTo(0, posY);
         ctx.lineTo(canvasWidth, posY);
@@ -71,6 +109,7 @@ function initGrid() {
 
 function draw_frame() {
     clearBoard();
+    drawMyPieceShadow(); // draw shadow before piece
     drawPieces();
     drawFallenBlocks();
     updateQueue();
