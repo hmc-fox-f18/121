@@ -34,12 +34,6 @@ function drawBlock(x, y, color, glow) {
   let posX = canvasWidth * x / boardWidth;
   let posY = canvasHeight * y / boardWidth;
   ctx.fillRect(posX, posY, blockWidth, blockHeight);
-
-  // if (glow) {
-  //   ctx.strokeStyle = "yellow";
-  //   ctx.lineWidth   = 2;
-  //   ctx.strokeRect(posX, posY, blockWidth, blockHeight);
-  // }
 }
 
 function drawPieces() {
