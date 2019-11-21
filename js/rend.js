@@ -2,8 +2,16 @@
 
 // Actual Code
 function clearBoard() {
-    // Clear Screen
+    //
+    //
+    // console.log(`stroke style: ${ctx.strokeStyle}, ${ctx.lineWidth}`);
+
+    // white gridlines with black background
     ctx.fillStyle = bgColor;
+    ctx.strokeStyle = "#FFFFFF";
+    ctx.lineWidth   = 1;
+    ctx.shadowBlur = 0;
+
     ctx.fillRect(0, 0, canvasWidth, canvasHeight);
     //Draw Gridlines
     ctx.stroke();
@@ -11,9 +19,11 @@ function clearBoard() {
 
 function drawBlock(x, y, color, glow) {
   ctx.fillStyle = color;
+
+  // if piece is glowing, render with a shadow
   if (glow) {
-    ctx.shadowColor = '#ffffffee';
-    ctx.shadowBlur = 40;
+    ctx.shadowColor = '#FFFF00ee';
+    ctx.shadowBlur = 20;
   }
   else {
     ctx.shadowColor = '#00000000';
@@ -24,6 +34,12 @@ function drawBlock(x, y, color, glow) {
   let posX = canvasWidth * x / boardWidth;
   let posY = canvasHeight * y / boardWidth;
   ctx.fillRect(posX, posY, blockWidth, blockHeight);
+
+  // if (glow) {
+  //   ctx.strokeStyle = "yellow";
+  //   ctx.lineWidth   = 2;
+  //   ctx.strokeRect(posX, posY, blockWidth, blockHeight);
+  // }
 }
 
 function drawPieces() {
