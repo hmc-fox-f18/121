@@ -14,7 +14,7 @@
 
 /* Modal Content/Box */
 .modal-content {
-  background-color: #eeeeee;
+  background-color: #CCCCCC;
   margin: 15% auto; /* 15% from the top and centered */
   padding: 20px;
   /* border: 1px solid #888; */
@@ -31,6 +31,7 @@
     height: 50px;
     background-color: #C83770;
     font-size: 16px;
+    color: #FFFFFF;
 }
 
 .modal .button-large:hover {
