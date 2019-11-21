@@ -1,4 +1,5 @@
 /* jshint esversion: 6 */
+
 class Piece {
     constructor(shape, shape_num, color, x, y, rot, boundWidth) {
         this.shape = shape;
@@ -8,6 +9,40 @@ class Piece {
         this.y = y;
         this.rot = rot;
         this.boundWidth = boundWidth;
+    }
+}
+
+const pieceZ = new Piece([ 1, 1, 0, 0, 1, 1, 0, 0, 0], 0,  "#FF5B5B", 0, 0, 0, 3); //0
+const pieceS = new Piece([ 0, 1, 1, 1, 1, 0, 0, 0, 0], 1, "#3DE978", 0, 0, 0, 3); //1
+const pieceJ = new Piece([ 1, 0, 0, 1, 1, 1, 0, 0, 0], 2, "#3D7AE9", 0, 0, 0, 3); //2
+const pieceL = new Piece([ 0, 0, 1, 1, 1, 1, 0, 0, 0], 3, "#FF894E", 0, 0, 0, 3); //3
+const pieceT = new Piece([ 0, 1, 0, 1, 1, 1, 0, 0, 0], 4, "#F27DFF", 0, 0, 0, 3); //4
+const pieceI = new Piece([ 0, 0, 0, 0, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0], 5, "#7DFFDC", 0, 0, 0, 4); //5
+const pieceO = new Piece([ 0, 0, 0, 0, 0, 1, 1, 0, 0, 1, 1, 0, 0, 0, 0, 0], 6, "#FFDF92", 0, 0, 0, 4); //6
+const shapes = [pieceZ, pieceS, pieceJ, pieceL, pieceT, pieceI, pieceO];
+
+class PlayerPiece extends Piece {
+    constructor(shape, shape_num, color, x, y, rot, boundWidth, player_id) {
+        // call base constructor
+        super(shape, shape_num, color, x, y, rot, boundWidth);
+
+        this.player_id = player_id;
+    }
+
+    // Call this to construct a player_piece from info sent from
+    // the server.
+    static fromNetworkInfo(shape_num, x, y, rot, player_id) {
+        // get the Piece template piece from the list
+        var piece_template = shapes[shape_num];
+
+        // create a new PlayerPiece using this Piece template
+        return new PlayerPiece(
+                piece_template.shape,
+                piece_template.shape_num,
+                piece_template.color,
+                x, y, rot,
+                piece_template.boundWidth,
+                player_id);
     }
 
     getRenderInfo() {

@@ -37,21 +37,23 @@ function drawBlock(x, y, color, glow) {
 }
 
 function drawPieces() {
-    game_state.piece_states.forEach((piece_state) => {
+    game_state.pieces.forEach((piece) => {
 
-      let [x, y, color, width, rot_shape] = piece_state.getPiece().getRenderInfo();
+        console.log(piece);
+
+      let [x, y, color, width, rot_shape] = piece.getRenderInfo();
 
       // Draw the blocks in the shape
       for (i in rot_shape) {
           if (rot_shape[i] == 1) {
-              let x = (piece_state.pivot.x + i % width);
-              let y = (piece_state.pivot.y + Math.floor(i / width));
-              let glow = piece_state.player_id == my_player_id;
+              let x = (piece.x + i % width);
+              let y = (piece.y + Math.floor(i / width));
+              let glow = piece.player_id == my_player_id;
 
               drawBlock(x, y, color, glow);
           }
       }
-    });
+  });
 }
 
 function drawFallenBlocks() {

@@ -6,7 +6,7 @@ function isMyPiece(piece) {
 }
 
 function getMyPiece() {
-  return game_state.piece_states.find(isMyPiece);
+  return game_state.pieces.find(isMyPiece);
 }
 
 
