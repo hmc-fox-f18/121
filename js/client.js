@@ -11,8 +11,8 @@ const strokeStyle = "white";
 // ******   Variables   ********
 //TODO: Consider removing global variables or moving relevant parts to
 //other components
-var boardWidth;
-var boardHeight;
+let BOARD_WIDTH = 20;
+let BOARD_HEIGHT = 20;
 
 var canvasWidth;
 var canvasHeight;
@@ -38,9 +38,8 @@ var game_state = new GameState([], [], []);
  */
 function init() {
     //TODO: Receive board specifications from server
-    boardWidth = 20;
-    boardHeight = 20;
-    board = Array(boardWidth).fill(Array(boardHeight));
+
+    board = Array(BOARD_WIDTH).fill(Array(BOARD_HEIGHT));
 
     canvas = document.getElementById('board');
     ctx = canvas.getContext('2d');
@@ -49,8 +48,8 @@ function init() {
     canvasWidth = canvas.width;
     canvasHeight = canvas.height;
 
-    blockHeight = canvasHeight / boardHeight;
-    blockWidth = canvasWidth / boardWidth;
+    blockHeight = canvasHeight / BOARD_HEIGHT;
+    blockWidth = canvasWidth / BOARD_WIDTH;
 
     // store keypresses
     window.addEventListener('keydown', (e) => {

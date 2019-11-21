@@ -1,5 +1,10 @@
 /* jshint esversion: 6 */
 
+/*
+Piece objects should not be used directly in the game because they have no
+associated player_id. Rather, they should be used to create PlayerPiece
+objects.
+*/
 class Piece {
     constructor(shape, shape_num, color, x, y, rot, boundWidth) {
         this.shape = shape;
@@ -12,6 +17,7 @@ class Piece {
     }
 }
 
+
 const pieceZ = new Piece([ 1, 1, 0, 0, 1, 1, 0, 0, 0], 0,  "#FF5B5B", 0, 0, 0, 3); //0
 const pieceS = new Piece([ 0, 1, 1, 1, 1, 0, 0, 0, 0], 1, "#3DE978", 0, 0, 0, 3); //1
 const pieceJ = new Piece([ 1, 0, 0, 1, 1, 1, 0, 0, 0], 2, "#3D7AE9", 0, 0, 0, 3); //2
@@ -21,12 +27,27 @@ const pieceI = new Piece([ 0, 0, 0, 0, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0], 5, "
 const pieceO = new Piece([ 0, 0, 0, 0, 0, 1, 1, 0, 0, 1, 1, 0, 0, 0, 0, 0], 6, "#FFDF92", 0, 0, 0, 4); //6
 const shapes = [pieceZ, pieceS, pieceJ, pieceL, pieceT, pieceI, pieceO];
 
+/*
+PlayerPiece objects are typically built using the fromNetworkInfo static method.
+This class is similar to Piece class, but has the added player_id field and
+supports collision detection because these objects are intended for use in the
+game.
+*/
 class PlayerPiece extends Piece {
     constructor(shape, shape_num, color, x, y, rot, boundWidth, player_id) {
-        // call base constructor
+        // call base constructor to set fields
         super(shape, shape_num, color, x, y, rot, boundWidth);
-
+        // player_id field isn't in Piece class
         this.player_id = player_id;
+    }
+
+    deepCopy() {
+        return new PlayerPiece(this.shape,
+                               this.shape_num,
+                               this.color,
+                               this.x, this.y, this.rot,
+                               this.boundWidth,
+                               this.player_id);
     }
 
     // Call this to construct a player_piece from info sent from
@@ -61,25 +82,76 @@ class PlayerPiece extends Piece {
      *
      * Returns true if there is a collision.
      */
-    collision() {
+     collision() {
+         return this.wall_collision() || this.player_collision() || this.fallen_block_collision();
+     }
+
+    // calls callback(x, y) for each occupied block
+    get_occupied_blocks(callback) {
+        // get the rotated version of the matrix
         let rot_shape = this.rotate_shape();
         let x = this.x;
         let y = this.y;
+
         //Determine whether the block is in a 3x3 or 4x4 bounding box
         let bound_width = this.boundWidth;
         for (let block in rot_shape) {
             if (rot_shape[block] == 1) {
-                if (x + (block % bound_width) < 0) {
-                    return true;
-                }
-                //TODO: make boardWidth not global
-                else if (x + (block % bound_width) >= boardWidth) {
-                    return true;
-                }
+                let abs_x = x + (block % bound_width);
+                let abs_y = y + Math.floor(block / bound_width);
+
+                callback(abs_x, abs_y);
             }
         }
-        //TODO: Check for collision with other pieces and floor
-        return false;
+    }
+
+    wall_collision() {
+        var off_screen = false;
+
+        this.get_occupied_blocks((x, y) => {
+            if (x < 0 || x >= BOARD_WIDTH || y >= BOARD_HEIGHT) {
+                off_screen = true;
+            }
+        });
+
+        return off_screen;
+    }
+
+    player_collision() {
+        // first, get a list of all the squares that are occupied by pieces
+        // that aren't our piece
+        var is_overlap = false;
+
+        game_state.pieces.forEach((piece) => {
+            // if the piece isn't my piece, add all the blocks it occupies
+            // to the set
+            if (isMyPiece(piece)) return;
+
+            piece.get_occupied_blocks((other_x, other_y) => {
+                this.get_occupied_blocks((my_x, my_y) => {
+                    if (other_x == my_x && other_y == my_y) {
+                        is_overlap = true;
+                    }
+                });
+            });
+        });
+
+        return is_overlap;
+    }
+
+    fallen_block_collision() {
+        var is_overlap = false;
+
+        this.get_occupied_blocks((my_x, my_y) => {
+            game_state.fallen_blocks.forEach((fallen_block) => {
+                if (fallen_block.position.x == my_x &&
+                    fallen_block.position.y == my_y) {
+                    is_overlap = true;
+                }
+            });
+        });
+
+        return is_overlap;
     }
 
     //TODO: Better rotation method
@@ -125,11 +197,11 @@ class PlayerPiece extends Piece {
         }
     }
 
-    /**
-     *
-     *  Returns a shape array representing the piece's current rotation
-     *
-     */
+/**
+ *
+ *  Returns a shape array representing the piece's current rotation
+ *
+ */
     rotate_shape() {
         switch(this.rot) {
             case 1:
@@ -140,150 +212,6 @@ class PlayerPiece extends Piece {
                 return this.rotate_ccw();
             default:
                 return this.shape;
-        }
-    }
-
-    /**
-     *
-     * Takes whether the rotation is clockwise as an input, and tries to
-     * perform a series of wallkicks to determine what the resulting position
-     * from this rotation should be. If no wall kicks are valid
-     * positions, the piece will return the original position and
-     * rotation.
-     *
-     * Returns true if the piece can be rotated, and false otherwise
-     */
-    wallkick(clockwise) {
-        let rot = this.rot;
-        if (clockwise) {
-            this.rot = (this.rot + 1) % 4;
-        }
-        else {
-            this.rot = this.rot - 1;
-            this.rot = this.rot == -1 ? 3 : this.rot;
-        }
-
-        // No Change, Test 1
-        if (!this.collision()) {
-            return true;
-        }
-
-        let x = this.x;
-        let y = this.y;
-        if (this.wkTest2(x, y, clockwise, rot)) {
-            return true;
-        }
-        else if (this.wkTest3(x, y)) {
-            return true;
-        }
-        else if (this.wkTest4(x, y, clockwise, rot)) {
-            return true;
-        }
-        else if (this.wkTest5(x, y, clockwise, rot)) {
-            return true;
-        }
-
-        // All failed, return to original
-        this.x = x;
-        this.y = y;
-        this.rot = rot;
-        return false;
-    }
-
-    //TODO: Consider having I block test override super class tests
-    wkTest2(x, y, clockwise, rot) {
-        if (this.boundWidth == 3) {
-            let x_test = (this.rot == 2 || this.rot == 3) ? 1 : -1;
-            x_test = clockwise ? x_test : -1 * x_test;
-            let y_test = 0;
-            this.x = x + x_test;
-            this.y = y + y_test;
-            if (!this.collision()) {
-                return true;
-            }
-        }
-        else { //I block rotation
-            let x_test = (this.rot % 2) == 1 ? -1 : 1;
-            x_test = (this.rot == 1 || this.rot == 3) ||
-                    (rot == 1 || rot == 3) ? 2 * x_test : x_test;
-            let y_test = 0;
-            this.x = x + x_test;
-            this.y = y + y_test;
-            if (!this.collision()) {
-                return true;
-            }
-        }
-    }
-
-    wkTest3(x, y, rot) {
-        if (this.boundWidth == 3) {
-            let y_test = (this.rot == 1 || this.rot == 3) ? 1 : -1;
-            this.y = y + y_test;
-            if (!this.collision()) {
-                return true;
-            }
-        }
-        else { //I block wallkick
-            let x_test = (this.rot % 2) == 1 ? 1 : -1;
-            x_test = (this.rot == 1 || this.rot == 3) ||
-                    (rot == 1 || rot == 3) ? x_test : 2 * x_test;
-            this.x = x + x_test;
-            this.y = y;
-            if (!this.collision()) {
-                return true;
-            }
-        }
-    }
-
-    wkTest4(x, y, clockwise, rot) {
-        if (this.boundWidth == 3) {
-            let y_test = (this.rot == 1 || this.rot == 3) ? 1 : -1;
-            this.x = x;
-            this.y = y + 2 * y_test;
-            if (!this.collision()) {
-                return true;
-            }
-        }
-        else {
-            let x_test = (this.rot % 2) == 1 ? -1 : 1;
-            x_test = (this.rot == 1 || this.rot == 3) ||
-                    (rot == 1 || rot == 3) ? 2 * x_test : x_test;
-
-            let y_test = (this.rot == 1) || (rot == 3) ? 1 : -1;
-            y_test = (clockwise && (this.rot == 1 || this.rot == 3) ) ||
-                (!clockwise && (this.rot == 0 || this.rot == 2) ) ?
-                y_test : 2 * y_test;
-
-            this.x = x + x_test;
-            this.y = y + y_test;
-            if (!this.collision()) {
-                return true;
-            }
-        }
-    }
-
-    wkTest5(x, y, clockwise, rot) {
-        if (this.boundWidth == 3) {
-            this.x = x + x_test;
-            if (!this.collision()) {
-                return;
-            }
-        }
-        else {
-            let x_test = (this.rot == 1) || (rot == 3) ? -1 : 1;
-            x_test = (clockwise && (this.rot == 1 || this.rot == 3) ) ||
-                (!clockwise && (this.rot == 0 || this.rot == 2) ) ?
-                x_test : 2 * x_test;
-
-            let y_test = (this.rot % 2) == 1 ? 1 : -1;
-            y_test = (this.rot == 1 || this.rot == 3) ||
-                    (rot == 1 || rot == 3) ? 2 * y_test : y_test;
-
-            this.x = x + x_test;
-            this.y = y + y_test;
-            if (!this.collision()) {
-                return true;
-            }
         }
     }
 }
