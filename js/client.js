@@ -76,7 +76,13 @@ function handleFrame() {
     updatePosition();
     keystate = [];
     draw_frame();
-    window.requestAnimationFrame(handleFrame);
+
+    // only paint another frame if the game isn't over
+    if (!gameOver) {
+        window.requestAnimationFrame(handleFrame);
+    } else {
+        $('#restart-modal').show();
+    }
 }
 
 /**
@@ -93,4 +99,8 @@ function updatePosition() {
     // send update piece position to the server
     //const piece_obj = JSON.stringify(myUpdatedPiece);
     sendInput(keystate);
+}
+
+function restart_game() {
+    location.reload();
 }
