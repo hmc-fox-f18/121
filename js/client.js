@@ -14,6 +14,8 @@ const strokeStyle = "white";
 let BOARD_WIDTH = 20;
 let BOARD_HEIGHT = 20;
 
+let KEYPRESS_INTERVAL = 100;
+
 var canvasWidth;
 var canvasHeight;
 
@@ -24,7 +26,7 @@ var board;
 var ctx;
 
 var my_player_id;
-var keystate = [];
+
 var socket;
 var socketOpen = false;
 
@@ -51,11 +53,7 @@ function init() {
     blockHeight = canvasHeight / BOARD_HEIGHT;
     blockWidth = canvasWidth / BOARD_WIDTH;
 
-    // store keypresses
-    window.addEventListener('keydown', (e) => {
-        keystate[e.key] = true;
-        e.preventDefault();
-    });
+    initKeypressHandler();
 
 
     //Initialize network and rendering components
@@ -74,7 +72,6 @@ function init() {
  */
 function handleFrame() {
     updatePosition();
-    keystate = [];
     draw_frame();
 
     // only paint another frame if the game isn't over
@@ -97,8 +94,9 @@ function updatePosition() {
     }
 
     // send update piece position to the server
-    //const piece_obj = JSON.stringify(myUpdatedPiece);
-    sendInput(keystate);
+    // getKeypresses gets whichever pieces have been pressed since the last
+    // call of this function
+    sendInput(getKeypresses());
 }
 
 function restart_game() {
