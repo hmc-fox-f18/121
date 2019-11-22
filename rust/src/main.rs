@@ -66,6 +66,7 @@ struct Client<'a> {
     inactive_players: &'a Mutex<InactivePlayersType>,
     fallen_blocks: &'a Mutex<FallenBlocksType>,
     timeout: Option<Timeout>,
+    shutdown: bool,
 }
 
 // For accessing the default handler implementation
@@ -117,8 +118,9 @@ impl Handler for Client<'_> {
         self.out.send(response.to_string())
     }
 
-    //TODO: Deal with different messages if applicable
     fn on_message(&mut self, msg: Message) -> Result<()> {
+        if self.shutdown { return Ok(()); } // if connection is shutdown, do nothing
+
         // Parse the msg as text
         if let Ok(text) = msg.into_text() {
             // Try to parse the message as a piece state
@@ -156,6 +158,8 @@ impl Handler for Client<'_> {
      *
      */
     fn on_close(&mut self, code: CloseCode, _reason: &str) {
+        if self.shutdown { return; } // if connection is shutdown, do nothing
+
         // Print reason for connection loss
         let player_id : usize = self.out.token().into();
         match code {
@@ -170,6 +174,8 @@ impl Handler for Client<'_> {
     }
 
     fn on_error(&mut self, err: Error) {
+        if self.shutdown { return; }// if connection is shutdown, do nothing
+
         println!("The server encountered an error: {:?}", err);
     }
 
@@ -182,6 +188,8 @@ impl Handler for Client<'_> {
      *
      */
     fn on_timeout(&mut self, event: Token) -> Result<()> {
+        if self.shutdown { return Ok(()); } // if connection is shutdown, do nothing
+
         // if the event is PING, send a ping message and setup the next timeout
         match event {
             PING => {
@@ -204,18 +212,21 @@ impl Handler for Client<'_> {
                 println!("disconnect timeout called");
 
                 /*
-                TODO: stop listening to this client here (if I could only figure out how!)
-
-                If the client eventually reconnects, close will be the first message they see
-                and they will respond with a close. The our on_close method will be called and
-                this connection will be destroyed.
+                This code is run if the client becomes unresponsive and won't respond to a close
+                message.
 
                 We call remove_player now so that the other clients don't have to worry about
-                this inactive player. Remove_player will be called again in the on_close method,
-                but its been written so that it won't do anything harmful if called twice on
-                the same player.
+                this inactive player.
+
+                We set self.shutdown == true so that all future data on this connection is ignored.
                 */
-                self.out.close(CloseCode::Away);
+
+                self.shutdown = true;
+
+                match self.out.close(CloseCode::Away) {
+                    Err(_) => println!("Unable to send close message to unresponsive client."),
+                    _ => { },
+                };
 
                 let player_id : usize = self.out.token().into();
                 let mut players = self.active_players.lock().unwrap();
@@ -231,20 +242,33 @@ impl Handler for Client<'_> {
     }
 
     fn on_new_timeout(&mut self, event: Token, timeout: Timeout) -> Result<()> {
+        if self.shutdown { return Ok(()); } // if connection is shutdown, do nothing
+
         if event == PING {
             println!("ping timeout created");
         }
 
         if event == DISCONNECT {
-            println!("disconnect timeout created");
-            assert!(self.timeout.is_none()); // make sure that self.timeout is None
-            self.timeout = Some(timeout);
+            // if there was no timeout registered, register one
+            if self.timeout.is_none() {
+                println!("disconnect timeout created");
+                self.timeout = Some(timeout);
+            }
+            // if there was already a timeout registered and we just registered a duplicate
+            else {
+                match self.out.cancel(timeout) {
+                    Err(_) => println!("Unable to cancel redundant timeout."),
+                    _ => { },
+                }
+            }
         }
 
         return Ok(());
     }
 
     fn on_frame(&mut self, frame: Frame) -> Result<Option<Frame>> {
+        if self.shutdown { return Ok(None); } // if connection is shutdown, do nothing
+
         if frame.opcode() == OpCode::Pong {
             println!("received pong");
 
@@ -581,6 +605,7 @@ fn main() {
             active_players: &active_players,
             inactive_players: &inactive_players,
             fallen_blocks: &fallen_blocks,
+            shutdown: false,
         }
     };
 
