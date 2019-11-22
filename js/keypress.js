@@ -13,7 +13,7 @@ function initKeypressHandler() {
     // keydown map contains whether or not each key is down
     window.addEventListener('keydown', (e) => {
         // if there's already a timer to fire this keypress, do nothing
-        if (!(e.key in keypress_timers)) {
+        if (!(e.key in keypress_timers)) { 
             // trigger a keypress event immediately
             keypresses[e.key]=true;
 

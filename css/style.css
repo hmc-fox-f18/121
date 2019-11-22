@@ -1,3 +1,8 @@
 div, p, h1, h2, h3 {
     font-family: Helvetica, sans-serif;
 }
+
+table {
+    margin-left:auto;
+    margin-right:auto;
+}

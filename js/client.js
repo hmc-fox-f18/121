@@ -13,8 +13,7 @@ const strokeStyle = "white";
 //other components
 let BOARD_WIDTH = 20;
 let BOARD_HEIGHT = 20;
-
-let KEYPRESS_INTERVAL = 100;
+let KEYPRESS_INTERVAL = 100; // ms
 
 var canvasWidth;
 var canvasHeight;

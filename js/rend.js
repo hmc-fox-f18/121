@@ -1,4 +1,5 @@
-//TODO: Adjust constant locations?
+let FLASH_READY_DURATION = 500; // ms
+let FLASH_READY_FLASH_PERIOD = 50; // ms
 
 // Actual Code
 function clearBoard() {
@@ -92,6 +93,31 @@ function drawMyPieceShadow() {
     });
 }
 
+var previously_playing = false;
+
+function updateReadyMessage() {
+    // if the player is not currently playing, they will not have a piece
+    let currently_playing = (getMyPiece() != undefined);
+
+    // if the player has just transitioned from not playing to playing,
+    // show the ready message
+    if (currently_playing && !previously_playing) {
+        $("#board").addClass("red-border");
+
+        let toggleInterval = setInterval(() => {
+            console.log("red border toggle");
+            $("#board").toggleClass("red-border");
+        }, FLASH_READY_FLASH_PERIOD);
+
+        setTimeout(() => {
+            clearInterval(toggleInterval);
+            $("#board").removeClass("red-border");
+        }, FLASH_READY_DURATION);
+    }
+
+    previously_playing = currently_playing;
+}
+
 function initGrid() {
     // Draw Vertical Gridlines
     for(let i = 0; i <= BOARD_WIDTH; ++i) {
@@ -113,4 +139,5 @@ function draw_frame() {
     drawPieces();
     drawFallenBlocks();
     updateQueue();
+    updateReadyMessage();
 }
