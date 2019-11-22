@@ -99,14 +99,9 @@ function updateReadyMessage() {
     let currently_playing = (getMyPiece() != undefined);
 
     // if the player has just transitioned from not playing to playing,
-    // show the ready message
+    // give them a signal by making a shadow being the canvas flash green
     if (currently_playing && !previously_playing) {
         $("#board").addClass("emphasize");
-        //
-        // let toggleInterval = setInterval(() => {
-        //     console.log("red border toggle");
-        //     $("#board").toggleClass("red-border");
-        // }, FLASH_READY_FLASH_PERIOD);
 
         setTimeout(() => {
             // clearInterval(toggleInterval);
