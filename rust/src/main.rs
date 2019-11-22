@@ -31,8 +31,16 @@ const FRAME_TIME : time::Duration = time::Duration::from_millis(FRAME_MILLIS);
 const NUM_BAGS : usize = 3;
 const BAG_SIZE : usize = 14;
 const MAX_NUM_ACTIVE : usize = 2;
+
 // how long it takes between when pieces move down 1 square
-const SHIFT_PERIOD_MILLIS : u128 = 250;
+const START_SHIFT_PERIOD : f32 = 300.0;
+
+// how long it takes between when pieces move down 1 square
+const MIN_SHIFT_PERIOD : f32 = 100.0;
+
+// at this rate, it takes 800 seconds to reach MAX_SHIFT_PERIOD
+const SHIFT_PERIOD_DELTA : f32 = 0.05;
+
 
 const PIECE_START_X_LEFT : i8 = 5;
 const PIECE_START_Y_LEFT : i8 = 5;
@@ -463,7 +471,6 @@ fn activate_piece(active_players : &mut ActivePlayersType,
             player.pivot.y = PIECE_START_Y_RIGHT;
         }
 
-
         // make sure that we didn't insert a duplicate into the set
         match active_players.insert(player.player_id, player) {
             Some(_) => { panic!("Already a player with id {} in active_players set.", player.player_id); },
@@ -486,6 +493,9 @@ fn game_frame<'a>(broadcaster: Sender,
     // the time when we last shifted the pieces down
     let mut last_shift_time : u128 = 0;
 
+    // the ms between piece shifts
+    let mut shift_period : f32 = START_SHIFT_PERIOD as f32;
+
     //
     let mut block_queue = [[0, 1, 2, 3, 4, 5, 6, 0, 1, 2, 3, 4, 5, 6] ; NUM_BAGS];
     let mut block_index = 0;
@@ -498,7 +508,7 @@ fn game_frame<'a>(broadcaster: Sender,
 
         // drop the pieces 1 square if they need to be dropped
         let current_time = millis_since_epoch();
-        if current_time - last_shift_time > SHIFT_PERIOD_MILLIS {
+        if (current_time - last_shift_time) as f32 > shift_period {
 
             // check to make sure shift works
             shift_pieces(&mut active_players, &mut inactive_players, &mut fallen_blocks);
@@ -506,6 +516,14 @@ fn game_frame<'a>(broadcaster: Sender,
             // actives a single piece
             activate_piece(&mut active_players, &mut inactive_players, &mut block_queue, &mut block_index);
             last_shift_time = current_time;
+
+            // Recalculate the shift period so it continually drops until it hits
+            // MIN_SHIFT_PERIOD.
+            if shift_period - SHIFT_PERIOD_DELTA > MIN_SHIFT_PERIOD {
+                shift_period -= SHIFT_PERIOD_DELTA;
+            } else {
+                shift_period = MIN_SHIFT_PERIOD;
+            }
         }
 
         // Clear all completed fallen lines
@@ -515,11 +533,11 @@ fn game_frame<'a>(broadcaster: Sender,
         // If either starting point is blocked, end the game
         let start_left_pivot = &Pivot {
             x: PIECE_START_X_LEFT,
-            y: PIECE_START_Y_LEFT
+            y: PIECE_START_Y_LEFT,
         };
         let start_right_pivot = &Pivot {
-            x: PIECE_START_X_LEFT,
-            y: PIECE_START_Y_LEFT
+            x: PIECE_START_X_RIGHT,
+            y: PIECE_START_Y_RIGHT,
         };
 
         if fallen_blocks.contains_key(start_left_pivot) || fallen_blocks.contains_key(start_right_pivot) {
