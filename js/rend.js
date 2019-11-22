@@ -1,5 +1,4 @@
-let FLASH_READY_DURATION = 500; // ms
-let FLASH_READY_FLASH_PERIOD = 50; // ms
+let READY_SIGNAL_DURATION = 500; // ms
 
 // Actual Code
 function clearBoard() {
@@ -102,17 +101,17 @@ function updateReadyMessage() {
     // if the player has just transitioned from not playing to playing,
     // show the ready message
     if (currently_playing && !previously_playing) {
-        $("#board").addClass("red-border");
-
-        let toggleInterval = setInterval(() => {
-            console.log("red border toggle");
-            $("#board").toggleClass("red-border");
-        }, FLASH_READY_FLASH_PERIOD);
+        $("#board").addClass("emphasize");
+        //
+        // let toggleInterval = setInterval(() => {
+        //     console.log("red border toggle");
+        //     $("#board").toggleClass("red-border");
+        // }, FLASH_READY_FLASH_PERIOD);
 
         setTimeout(() => {
-            clearInterval(toggleInterval);
-            $("#board").removeClass("red-border");
-        }, FLASH_READY_DURATION);
+            // clearInterval(toggleInterval);
+            $("#board").removeClass("emphasize");
+        }, READY_SIGNAL_DURATION);
     }
 
     previously_playing = currently_playing;
