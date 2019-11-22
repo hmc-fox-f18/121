@@ -41,6 +41,7 @@ const MIN_SHIFT_PERIOD : f32 = 100.0;
 // at this rate, it takes 800 seconds to reach MAX_SHIFT_PERIOD
 const SHIFT_PERIOD_DELTA : f32 = 0.05;
 
+const BOTTOM_TOUCH_MS : u128 = 500;
 
 const PIECE_START_X_LEFT : i8 = 5;
 const PIECE_START_Y_LEFT : i8 = 5;
@@ -50,7 +51,6 @@ const PIECE_START_Y_RIGHT : i8 = 1;
 
 const DISCONNECT_MILLIS : u64 = 3000; // 3 seconds
 const PING_MILLIS : u64 = 1000; // 1 second
-
 const PING: Token = Token(1);
 const DISCONNECT: Token = Token(2);
 
@@ -417,32 +417,94 @@ fn add_fallen_blocks(piece : &PieceState, fallen_blocks : &mut FallenBlocksType)
     }
 }
 
+// move piece down by 1 square
+// returns true if the player is no longer active
+fn drop_piece(player : &mut PieceState, fallen_blocks : &mut FallenBlocksType) -> bool {
+
+    // make a copy which we shift down and check for collision
+    let mut player_copy = (*player).clone();
+
+
+    player_copy.pivot.y += 1;
+
+    // If piece has fallen off of the screen, remove it from play
+    if fallen_blocks_collision(&player_copy, fallen_blocks) {
+        add_fallen_blocks(player, fallen_blocks);
+        (*player).bottom_touch_time = None;
+        return true;
+    }
+    // if the piece has not about to fall off of the screen
+    else {
+        (*player).pivot.y += 1; // move the piece down by 1
+
+        player_copy.pivot.y += 1;
+
+        // if player is about to be off the screen, setup bottom_touch_time so that we can
+        // allow the player longer to move around when their piece is almost about to collide
+        if fallen_blocks_collision(&player_copy, fallen_blocks) {
+            (*player).bottom_touch_time = Some(millis_since_epoch());
+            println!("Player is about to collide with ground!");
+        }
+        // if the player is not about to be off the screen, just do regular dropping
+        else {
+            (*player).bottom_touch_time = Some(millis_since_epoch());
+        }
+
+        return false;
+    }
+}
+
 fn shift_pieces(active_players : &mut ActivePlayersType,
                 inactive_players : &mut InactivePlayersType,
-                fallen_blocks : &mut FallenBlocksType) {
+                fallen_blocks : &mut FallenBlocksType,
+                block_queue : &mut BlockQueueType,
+                block_index : &mut usize,
+                last_shift_time : &mut u128,
+                shift_period : &mut f32) {
+
+
+    let current_time = millis_since_epoch();
+    let shift_ready = (current_time - *last_shift_time) as f32 > *shift_period;
+
 
     let mut player_ids_to_remove : Vec<usize> = vec![];
 
     for (_, mut player) in active_players.iter_mut() {
-        // make a copy which we shift down and check for collision
-        let mut player_copy = player.clone();
-        player_copy.pivot.y += 1;
 
-        // If piece is off of the screen, remove it from play
-        // We do this later, not in the iterator, since removing
-        // elements while iterating is not safe.
+        match player.bottom_touch_time {
+            Some(bottom_touch_time) => {
+                if current_time - bottom_touch_time > BOTTOM_TOUCH_MS {
+                    // if drop_piece returns true,
+                    if drop_piece(&mut player, fallen_blocks) {
+                        player_ids_to_remove.push(player.player_id);
+                    }
 
-        if fallen_blocks_collision(&player_copy, fallen_blocks) {
-            add_fallen_blocks(player, fallen_blocks);
-            player_ids_to_remove.push(player.player_id);
-        } else {
-            player.pivot.y += 1;
-        }
+                    println!("just performend special shift down");
+                }
+            },
+            None => {
+                if shift_ready {
+                    assert!(drop_piece(&mut player, fallen_blocks) == false);
+                    println!("just performed normal shift down: {:?}", player.bottom_touch_time);
+                }
+            },
+        };
     }
 
     // actually remove players from the board
     for player_id in player_ids_to_remove {
         move_to_inactive(player_id, active_players, inactive_players);
+    }
+
+    //
+    if shift_ready {
+        // actives a single piece
+        activate_piece(active_players, inactive_players, block_queue, block_index);
+
+        // make shift period a bit shorter so that every cycle blocks fall down faster
+        recalc_shift_period(shift_period);
+
+        *last_shift_time = current_time;
     }
 }
 
@@ -480,6 +542,16 @@ fn activate_piece(active_players : &mut ActivePlayersType,
     }
 }
 
+fn recalc_shift_period(shift_period : &mut f32) {
+    // Recalculate the shift period so it continually drops until it hits
+    // MIN_SHIFT_PERIOD.
+    if *shift_period - SHIFT_PERIOD_DELTA > MIN_SHIFT_PERIOD {
+        *shift_period -= SHIFT_PERIOD_DELTA;
+    } else {
+        *shift_period = MIN_SHIFT_PERIOD;
+    }
+}
+
 /**
  *
  *  Runs the actual game logic at regular intervals, then sends out a
@@ -506,27 +578,15 @@ fn game_frame<'a>(broadcaster: Sender,
         let mut active_players = thread_active_players.lock().unwrap();
         let mut inactive_players = thread_inactive_players.lock().unwrap();
         let mut fallen_blocks = thread_fallen_blocks.lock().unwrap();
-        let mut score = thread_score.lock().unwrap();
 
-        // drop the pieces 1 square if they need to be dropped
-        let current_time = millis_since_epoch();
-        if (current_time - last_shift_time) as f32 > shift_period {
-
-            // check to make sure shift works
-            shift_pieces(&mut active_players, &mut inactive_players, &mut fallen_blocks);
-
-            // actives a single piece
-            activate_piece(&mut active_players, &mut inactive_players, &mut block_queue, &mut block_index);
-            last_shift_time = current_time;
-
-            // Recalculate the shift period so it continually drops until it hits
-            // MIN_SHIFT_PERIOD.
-            if shift_period - SHIFT_PERIOD_DELTA > MIN_SHIFT_PERIOD {
-                shift_period -= SHIFT_PERIOD_DELTA;
-            } else {
-                shift_period = MIN_SHIFT_PERIOD;
-            }
-        }
+        // check to make sure shift works
+        shift_pieces(&mut active_players,
+                     &mut inactive_players,
+                     &mut fallen_blocks,
+                     &mut block_queue,
+                     &mut block_index,
+                     &mut last_shift_time,
+                     &mut shift_period);
 
         // Clear all completed fallen lines
         clear_lines(&mut fallen_blocks, &mut score);
