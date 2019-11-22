@@ -629,7 +629,7 @@ fn main() {
 
     // Same functionality as listen command, but actually compiles?
     let socket = WebSocket::new(server_gen).unwrap();
-    let socket = match socket.bind("127.0.0.1:3012") {
+    let socket = match socket.bind("0.0.0.0:3012") {
         Ok(v) => v,
         Err(_e) => {
             panic!("Socket in Use, Please Close Other Server")
