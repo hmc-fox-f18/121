@@ -540,7 +540,36 @@ fn game_frame<'a>(broadcaster: Sender,
             y: PIECE_START_Y_RIGHT,
         };
 
-        if fallen_blocks.contains_key(start_left_pivot) || fallen_blocks.contains_key(start_right_pivot) {
+        let mut is_collision = false;
+        let starting_tiles = [start_left_pivot, start_right_pivot];
+        let iter = starting_tiles.iter();
+        for starting_tile in iter {
+            let right = &Pivot {
+                x: starting_tile.x + 1,
+                y: starting_tile.y,
+            };
+            let left = &Pivot {
+                x: starting_tile.x - 1,
+                y: starting_tile.y,
+            };
+            let above = &Pivot {
+                x: starting_tile.x,
+                y: starting_tile.y - 1,
+            };
+            let below = &Pivot {
+                x: starting_tile.x,
+                y: starting_tile.y + 1,
+            };
+
+            let to_check = [starting_tile, right, left, above, below];
+            for c in to_check.iter() {
+                if fallen_blocks.contains_key(c) {
+                    is_collision = true;
+                }
+            }
+        }
+
+        if is_collision {
             // Trigger Game Over
             let response = json!({
                 "type": "gameOver"
