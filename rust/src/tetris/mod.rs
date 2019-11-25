@@ -227,8 +227,9 @@ pub fn fallen_blocks_collision(piece : &PieceState, fallen_blocks : &FallenBlock
 }
 
 // Clears any lines necessary, modifying fallen_blocks as appropriate
-pub fn clear_lines(fallen_blocks : &mut FallenBlocksType) {
+pub fn clear_lines(fallen_blocks : &mut FallenBlocksType, score : &mut u32) {
     let mut offset = 0;
+    let mut lines_cleared = 0;
     for row in (0..BOARD_WIDTH).rev() {
         let mut is_full = true;
         for col in 0..BOARD_WIDTH {
@@ -252,6 +253,7 @@ pub fn clear_lines(fallen_blocks : &mut FallenBlocksType) {
                 };
                 fallen_blocks.remove(pivot);
             }
+            lines_cleared += 1;
         } else if offset != 0 {
             // If did not clear, add to new_fallen_blocks
             for col in 0..BOARD_WIDTH {
@@ -273,6 +275,12 @@ pub fn clear_lines(fallen_blocks : &mut FallenBlocksType) {
                 fallen_blocks.remove(pivot);
             }
         }
+    }
+    // Update the score, tetrises are scored diffrently
+    if lines_cleared == 4 {
+        *score += 800;
+    } else {
+        *score += 100 * lines_cleared;
     }
 }
 

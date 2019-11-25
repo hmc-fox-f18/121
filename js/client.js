@@ -31,7 +31,7 @@ var socketOpen = false;
 
 var gameOver = false;
 
-var game_state = new GameState([], [], []);
+var game_state = new GameState([], [], [], [], 0);
 // Actual Code
 
 /**

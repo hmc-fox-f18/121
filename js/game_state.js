@@ -10,11 +10,12 @@ class BlockState {
 
 // TODO: implement this within our code
 class GameState {
-  constructor(pieces, piece_queue, player_queue, fallen_blocks) {
+  constructor(pieces, piece_queue, player_queue, fallen_blocks, score) {
     this.pieces = pieces;
     this.piece_queue = piece_queue;
     this.player_queue = player_queue;
     this.fallen_blocks = fallen_blocks;
+    this.score = score;
   }
 
   static fromJson(json) {
@@ -46,6 +47,11 @@ class GameState {
       player_queue = [...server_state.player_queue];
     }
 
-    return new GameState(pieces, piece_queue, player_queue, fallen_blocks);
+    let score = 0;
+    if (server_state.hasOwnProperty('score')) {
+      score = server_state.score; // clone an array ES6-style
+    }
+
+    return new GameState(pieces, piece_queue, player_queue, fallen_blocks, score);
   }
 }
