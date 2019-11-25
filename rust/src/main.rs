@@ -579,7 +579,11 @@ fn game_frame<'a>(broadcaster: Sender,
                 Ok(v) => v,
                 Err(e) => println!("Unable to broadcast info: {}", e)
             };
-            break;
+
+            // Reset all data structure for next game
+            active_players.clear();
+            inactive_players.clear();
+            fallen_blocks.clear();
         }
 
         let fallen_blocks_list : Vec<BlockState> = fallen_blocks.iter().map(|(pivot, shape)| {
