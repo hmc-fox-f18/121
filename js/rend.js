@@ -112,6 +112,13 @@ function updateReadyMessage() {
     previously_playing = currently_playing;
 }
 
+function updateScore() {
+  console.log(game_state)
+  ctx.fillStyle = "#FFFFFF";
+  ctx.font = "bold 20pt Courier";
+  ctx.fillText(game_state.score.toString(), 10, 25)
+}
+
 function initGrid() {
     // Draw Vertical Gridlines
     for(let i = 0; i <= BOARD_WIDTH; ++i) {
@@ -134,4 +141,5 @@ function draw_frame() {
     drawFallenBlocks();
     updateQueue();
     updateReadyMessage();
+    updateScore();
 }

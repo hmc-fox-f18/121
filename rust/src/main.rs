@@ -488,7 +488,8 @@ fn activate_piece(active_players : &mut ActivePlayersType,
 fn game_frame<'a>(broadcaster: Sender,
                   thread_active_players: Arc<Mutex<ActivePlayersType>>,
                   thread_inactive_players: Arc<Mutex<InactivePlayersType>>,
-                  thread_fallen_blocks : Arc<Mutex<FallenBlocksType>>) {
+                  thread_fallen_blocks : Arc<Mutex<FallenBlocksType>>,
+                  thread_score : Arc<Mutex<u32>>) {
 
     // the time when we last shifted the pieces down
     let mut last_shift_time : u128 = 0;
@@ -504,7 +505,7 @@ fn game_frame<'a>(broadcaster: Sender,
         let mut active_players = thread_active_players.lock().unwrap();
         let mut inactive_players = thread_inactive_players.lock().unwrap();
         let mut fallen_blocks = thread_fallen_blocks.lock().unwrap();
-
+        let mut score = thread_score.lock().unwrap();
 
         // drop the pieces 1 square if they need to be dropped
         let current_time = millis_since_epoch();
@@ -527,7 +528,7 @@ fn game_frame<'a>(broadcaster: Sender,
         }
 
         // Clear all completed fallen lines
-        clear_lines(&mut fallen_blocks);
+        clear_lines(&mut fallen_blocks, &mut score);
 
         // Test for game-over criteria
         // If either starting point is blocked, end the game
@@ -584,6 +585,7 @@ fn game_frame<'a>(broadcaster: Sender,
             active_players.clear();
             inactive_players.clear();
             fallen_blocks.clear();
+            *score = 0;
         }
 
         let fallen_blocks_list : Vec<BlockState> = fallen_blocks.iter().map(|(pivot, shape)| {
@@ -610,12 +612,14 @@ fn game_frame<'a>(broadcaster: Sender,
             "fallen_blocks": fallen_blocks_list,
             "player_queue": inactive_player_ids,
             "piece_queue": next_pieces,
+            "score": score.clone(),
         });
 
         // Unlock players so main thread can take in player updates
         drop(active_players);
         drop(inactive_players);
         drop(fallen_blocks);
+        drop(score);
 
         // Send game state update to all connected clients
         match broadcaster.send(response.to_string()) {
@@ -643,10 +647,12 @@ fn main() {
     let active_players = Arc::new(Mutex::new(HashMap::new()));
     let inactive_players = Arc::new(Mutex::new(VecDeque::new()));
     let fallen_blocks = Arc::new(Mutex::new(HashMap::new()));
+    let score = Arc::new(Mutex::new(0));
 
     let thread_active_players = active_players.clone();
     let thread_inactive_players = inactive_players.clone();
     let thread_fallen_blocks = fallen_blocks.clone();
+    let thread_score = score.clone();
 
     // Code that initializes client structs
     let server_gen  = |out : Sender| {
@@ -675,7 +681,8 @@ fn main() {
         game_frame(broadcaster,
                    thread_active_players,
                    thread_inactive_players,
-                   thread_fallen_blocks);
+                   thread_fallen_blocks,
+                   thread_score);
     });
     // Run the server on this thread
     socket.run().unwrap();
