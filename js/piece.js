@@ -66,7 +66,7 @@ class PlayerPiece extends Piece {
                 x, y, rot,
                 piece_template.boundWidth,
                 player_id,
-                player_name);
+                player_name.join(""));
     }
 
     getRenderInfo() {
