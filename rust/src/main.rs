@@ -33,7 +33,7 @@ const BAG_SIZE : usize = 14;
 const MAX_NUM_ACTIVE : usize = 2;
 
 // how long it takes between when pieces move down 1 square
-const START_SHIFT_PERIOD : f32 = 300.0;
+const START_SHIFT_PERIOD : f32 = 500.0;
 
 // how long it takes between when pieces move down 1 square
 const MIN_SHIFT_PERIOD : f32 = 100.0;
