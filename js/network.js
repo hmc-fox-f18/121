@@ -57,7 +57,7 @@ function initSocket(connectionCallback) {
       $("#error-message").text(`The server closed the connection.`);
       $("#disconnect-modal").show();
     };
-    
+
     socket.onerror = function(error) {
         $("#error-message").text(`Connection error: ${error.message}`);
         $("#disconnect-modal").show();
@@ -73,6 +73,7 @@ function sendInput(inputs) {
     convertedArr.hard_drop = false;
     convertedArr.fast_drop = false;
     convertedArr.player_id = my_player_id;
+    convertedArr.player_name = document.getElementById("name-field").value || "Guest";
     let message = JSON.stringify(convertedArr);
     socket.send(message);
 }

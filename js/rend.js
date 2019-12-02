@@ -47,11 +47,24 @@ function drawBlock(x, y, color, glow) {
 function drawPieces() {
     game_state.pieces.forEach((piece) => {
       let glow = piece.player_id == my_player_id;
-
+      let min_y = 100;
+      let cor_x = 100;
       // Draw the blocks in the shape
       piece.get_occupied_blocks((x, y) => {
+          if (y < min_y) {
+            min_y = y;
+            cor_x = x;
+          }
           drawBlock(x, y, piece.color, glow);
       });
+
+      let nameX = canvasWidth * cor_x / BOARD_WIDTH;
+      let nameY = canvasHeight * min_y / BOARD_WIDTH;
+
+      ctx.fillStyle = "#FFFFFF";
+      ctx.font = "bold 10pt Courier";
+      ctx.fillText(piece.player_name, nameX, nameY)
+
   });
 }
 
@@ -113,7 +126,6 @@ function updateReadyMessage() {
 }
 
 function updateScore() {
-  console.log(game_state)
   ctx.fillStyle = "#FFFFFF";
   ctx.font = "bold 20pt Courier";
   ctx.fillText(game_state.score.toString(), 10, 25)

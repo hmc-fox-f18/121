@@ -34,11 +34,12 @@ supports collision detection because these objects are intended for use in the
 game.
 */
 class PlayerPiece extends Piece {
-    constructor(shape, shape_num, color, x, y, rot, boundWidth, player_id) {
+    constructor(shape, shape_num, color, x, y, rot, boundWidth, player_id, player_name) {
         // call base constructor to set fields
         super(shape, shape_num, color, x, y, rot, boundWidth);
         // player_id field isn't in Piece class
         this.player_id = player_id;
+        this.player_name = player_name;
     }
 
     deepCopy() {
@@ -47,12 +48,13 @@ class PlayerPiece extends Piece {
                                this.color,
                                this.x, this.y, this.rot,
                                this.boundWidth,
-                               this.player_id);
+                               this.player_id,
+                               this.player_name);
     }
 
     // Call this to construct a player_piece from info sent from
     // the server.
-    static fromNetworkInfo(shape_num, x, y, rot, player_id) {
+    static fromNetworkInfo(shape_num, x, y, rot, player_id, player_name) {
         // get the Piece template piece from the list
         var piece_template = shapes[shape_num];
 
@@ -63,7 +65,8 @@ class PlayerPiece extends Piece {
                 piece_template.color,
                 x, y, rot,
                 piece_template.boundWidth,
-                player_id);
+                player_id,
+                player_name.join(""));
     }
 
     getRenderInfo() {
