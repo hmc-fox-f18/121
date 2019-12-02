@@ -70,6 +70,7 @@ function init() {
  *  and rendering logic to draw the frame and send data to the server
  */
 function handleFrame() {
+  console.log(game_state)
     updatePosition();
     draw_frame();
 

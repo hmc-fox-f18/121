@@ -13,7 +13,7 @@ function initKeypressHandler() {
     // keydown map contains whether or not each key is down
     window.addEventListener('keydown', (e) => {
         // if there's already a timer to fire this keypress, do nothing
-        if (!(e.key in keypress_timers)) { 
+        if (!(e.key in keypress_timers)) {
             // trigger a keypress event immediately
             keypresses[e.key]=true;
 
@@ -25,8 +25,6 @@ function initKeypressHandler() {
                 keypresses[e.key]=true;
             }, KEYPRESS_INTERVAL);
         }
-
-        e.preventDefault();
     });
 
     window.addEventListener('keyup', (e) => {
@@ -37,7 +35,5 @@ function initKeypressHandler() {
             clearInterval(keypress_timers[e.key]);
             delete keypress_timers[e.key];
         }
-
-        e.preventDefault();
     });
 }

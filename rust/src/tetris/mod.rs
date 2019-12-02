@@ -75,7 +75,15 @@ fn apply_input(player_input : &KeyState,
 
     // make a copy of the current player state and work with this
     let mut new_state = active_players.get(&player_input.player_id).unwrap().clone();
-
+    let mut name = [' '; 8];
+    let chars: Vec<char> = player_input.player_name.chars().collect();
+    for (i, x) in chars.iter().enumerate() {
+        if i < 8 {
+            name[i] = *x;
+        }
+    }
+    new_state.player_name = name;
+    
     // Move left
     if player_input.left {
         new_state.pivot.x -= 1;

@@ -113,7 +113,6 @@ function updateReadyMessage() {
 }
 
 function updateScore() {
-  console.log(game_state)
   ctx.fillStyle = "#FFFFFF";
   ctx.font = "bold 20pt Courier";
   ctx.fillText(game_state.score.toString(), 10, 25)

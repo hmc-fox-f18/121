@@ -107,7 +107,8 @@ impl Handler for Client<'_> {
                 y: 0,
             },
             rotation: 0,
-            player_id: player_id
+            player_id: player_id,
+            player_name: ['g', 'u', 'e', 's', 't', ' ', ' ', ' ']
         };
 
         // Insert player into back of inactive queue

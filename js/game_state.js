@@ -27,7 +27,8 @@ class GameState {
         x.pivot.x,
         x.pivot.y,
         x.rotation,
-        x.player_id);
+        x.player_id,
+        x.player_name);
     });
 
     let fallen_blocks = server_state.fallen_blocks.map((fallen_block) => {
