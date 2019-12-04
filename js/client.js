@@ -15,6 +15,8 @@ let BOARD_WIDTH = 20;
 let BOARD_HEIGHT = 20;
 let KEYPRESS_INTERVAL = 100; // ms
 
+let GAME_START_DELAY = 2000;
+
 var canvasWidth;
 var canvasHeight;
 
@@ -58,10 +60,13 @@ function init() {
     //Initialize network and rendering components
     //TODO: delegate to relevant components
     initSocket(() => {
-      initGrid();
-      clearBoard();
-      drawPieces();
-      window.requestAnimationFrame(handleFrame);
+        initGrid();
+        clearBoard();
+        drawPieces();
+        
+        setTimeout(() => {
+            window.requestAnimationFrame(handleFrame);
+        }, GAME_START_DELAY);
     });
 }
 
