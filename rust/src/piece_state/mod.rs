@@ -12,7 +12,7 @@ pub struct PieceState {
     pub pivot: Pivot,
     pub rotation: u8,
     pub player_id: usize,
-    pub player_name: [char; 8]
+    pub player_name: [char; 8],
 
     // the time when this piece first began touching the bottom of the screen
     #[serde(skip)] // don't serialize this field
