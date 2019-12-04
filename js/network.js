@@ -71,7 +71,7 @@ function sendInput(inputs) {
     convertedArr.counter_rot = inputs.ArrowUp || false;
     convertedArr.rot = inputs.z || false;
     convertedArr.hard_drop = false;
-    convertedArr.fast_drop = false;
+    convertedArr.fast_drop = inputs.ArrowDown || false;
     convertedArr.player_id = my_player_id;
     convertedArr.player_name = document.getElementById("name-field").value || "Guest";
     let message = JSON.stringify(convertedArr);

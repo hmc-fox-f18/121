@@ -10,7 +10,7 @@ mod tests;
 
 use crate::piece_state::{PieceState, Pivot, BlockState};
 use crate::input::{KeyState};
-use crate::tetris::{update_state, fallen_blocks_collision, clear_lines, read_block, get_shape};
+use crate::tetris::{update_state, fallen_blocks_collision, player_collision, clear_lines, read_block, get_shape};
 
 use std::time::{SystemTime, UNIX_EPOCH};
 
@@ -32,6 +32,8 @@ const NUM_BAGS : usize = 3;
 const BAG_SIZE : usize = 14;
 const MAX_NUM_ACTIVE : usize = 2;
 
+/// CONSTANTS RELATED TO THE TIMING OF PIECE SHIFTING ///
+
 // how long it takes between when pieces move down 1 square
 const START_SHIFT_PERIOD : f32 = 500.0;
 
@@ -41,16 +43,21 @@ const MIN_SHIFT_PERIOD : f32 = 100.0;
 // at this rate, it takes 800 seconds to reach MAX_SHIFT_PERIOD
 const SHIFT_PERIOD_DELTA : f32 = 0.05;
 
+// how long piece may move when touching bottom of the board before it freezes
+const BOTTOM_TOUCH_MS : u128 = 500;
+
+const FAST_DROP_SHIFT_MS : u128 = 25;
+
 
 const PIECE_START_X_LEFT : i8 = 5;
 const PIECE_START_Y_LEFT : i8 = 5;
 const PIECE_START_X_RIGHT : i8 = 12;
 const PIECE_START_Y_RIGHT : i8 = 1;
 
+/// CONSTANTS RELATED TO DETECTING NETWORK TIMEOUTS
 
 const DISCONNECT_MILLIS : u64 = 3000; // 3 seconds
 const PING_MILLIS : u64 = 1000; // 1 second
-
 const PING: Token = Token(1);
 const DISCONNECT: Token = Token(2);
 
@@ -108,7 +115,9 @@ impl Handler for Client<'_> {
             },
             rotation: 0,
             player_id: player_id,
-            player_name: ['g', 'u', 'e', 's', 't', ' ', ' ', ' ']
+            player_name: ['g', 'u', 'e', 's', 't', ' ', ' ', ' '],
+            next_shift_time: None,
+            fast_drop: false,
         };
 
         // Insert player into back of inactive queue
@@ -202,14 +211,10 @@ impl Handler for Client<'_> {
         // if the event is PING, send a ping message and setup the next timeout
         match event {
             PING => {
-                println!("ping timeout called");
-
                 match self.out.ping(vec![]) {
                     Err(_) => { panic!("Unable to send ping."); },
                     _ => { },
                 };
-                println!("sent ping");
-
                 self.out.timeout(PING_MILLIS, PING).unwrap();
 
                 // if there is currently no disconnect timeout, start one
@@ -218,8 +223,6 @@ impl Handler for Client<'_> {
                 }
             },
             DISCONNECT => {
-                println!("disconnect timeout called");
-
                 /*
                 This code is run if the client becomes unresponsive and won't respond to a close
                 message.
@@ -253,14 +256,9 @@ impl Handler for Client<'_> {
     fn on_new_timeout(&mut self, event: Token, timeout: Timeout) -> Result<()> {
         if self.shutdown { return Ok(()); } // if connection is shutdown, do nothing
 
-        if event == PING {
-            println!("ping timeout created");
-        }
-
         if event == DISCONNECT {
             // if there was no timeout registered, register one
             if self.timeout.is_none() {
-                println!("disconnect timeout created");
                 self.timeout = Some(timeout);
             }
             // if there was already a timeout registered and we just registered a duplicate
@@ -279,15 +277,12 @@ impl Handler for Client<'_> {
         if self.shutdown { return Ok(None); } // if connection is shutdown, do nothing
 
         if frame.opcode() == OpCode::Pong {
-            println!("received pong");
-
             // if there is a timeout, cancel it
             if let Some(t) = self.timeout.take() {
                 match self.out.cancel(t) {
                     Err(_) => { panic!("Unable to cancel timeout."); },
                     _ => { },
                 };
-                println!("cancelled disconnect timeout");
                 self.timeout = None;
             }
         }
@@ -417,26 +412,88 @@ fn add_fallen_blocks(piece : &PieceState, fallen_blocks : &mut FallenBlocksType)
     }
 }
 
+// move piece down by 1 square
+// returns true if the player is no longer active
+fn drop_piece(player_id : usize, fallen_blocks : &mut FallenBlocksType, active_players : &mut ActivePlayersType, shift_period : &f32) -> bool {
+    // make a copy which we shift down and check for collision
+    let mut player_copy = active_players.get(&player_id).unwrap().clone();
+
+    player_copy.pivot.y += 1;
+
+    // If piece has fallen off of the screen, remove it from play
+    if fallen_blocks_collision(&player_copy, fallen_blocks) {
+        let player : &mut PieceState = active_players.get_mut(&player_id).unwrap();
+        add_fallen_blocks(player, fallen_blocks);
+        (*player).next_shift_time = None;
+        return true;
+    }
+
+    // if there is another piece blocking the way, don't shift down yet
+    // and stop fast drop
+    if player_collision(&player_copy, active_players) {
+        active_players.get_mut(&player_id).unwrap().fast_drop = false;
+        return false;
+    }
+
+    // if we've reache this point, the piece has not about to fall off of the screen
+    // and there is no other player in the way
+    let player : &mut PieceState = active_players.get_mut(&player_id).unwrap();
+    (*player).pivot.y += 1; // move the piece down by 1
+
+    // if we are doing fast drop, there is no extra time added when we're about to
+    // hit the bottom
+    if (*player).fast_drop {
+        (*player).next_shift_time = Some(millis_since_epoch() + FAST_DROP_SHIFT_MS);
+        return false;
+    }
+
+    // if piece is about to freeze, setup next_shift_time so that we can
+    // allow the player longer to move around when their piece is almost about to collide
+    player_copy.pivot.y += 1;
+    if fallen_blocks_collision(&player_copy, fallen_blocks) {
+        (*player).next_shift_time = Some(millis_since_epoch() + BOTTOM_TOUCH_MS);
+        println!("Player is about to collide with ground!");
+    }
+    // if the player is not about to be off the screen, just do regular dropping
+    else {
+        (*player).next_shift_time = Some(millis_since_epoch() + *shift_period as u128);
+    }
+
+    return false;
+}
+
 fn shift_pieces(active_players : &mut ActivePlayersType,
                 inactive_players : &mut InactivePlayersType,
-                fallen_blocks : &mut FallenBlocksType) {
+                fallen_blocks : &mut FallenBlocksType,
+                block_queue : &mut BlockQueueType,
+                block_index : &mut usize,
+                last_spawn_time : &mut u128,
+                shift_period : &mut f32) {
+
+
+    let current_time = millis_since_epoch();
+    let spawn_ready = (current_time - *last_spawn_time) as f32 > *shift_period;
+
+
+    let mut player_ids_to_drop : Vec<usize> = vec![];
+
+    for mut player in active_players.values() {
+        match player.next_shift_time {
+            Some(next_shift_time) => {
+                if current_time > next_shift_time {
+                    player_ids_to_drop.push(player.player_id);
+                }
+            },
+            None => panic!("There should be a next_shift_time field."),
+        };
+    }
 
     let mut player_ids_to_remove : Vec<usize> = vec![];
 
-    for (_, mut player) in active_players.iter_mut() {
-        // make a copy which we shift down and check for collision
-        let mut player_copy = player.clone();
-        player_copy.pivot.y += 1;
-
-        // If piece is off of the screen, remove it from play
-        // We do this later, not in the iterator, since removing
-        // elements while iterating is not safe.
-
-        if fallen_blocks_collision(&player_copy, fallen_blocks) {
-            add_fallen_blocks(player, fallen_blocks);
-            player_ids_to_remove.push(player.player_id);
-        } else {
-            player.pivot.y += 1;
+    // actually remove players from the board
+    for player_id in player_ids_to_drop {
+        if drop_piece(player_id, fallen_blocks, active_players, shift_period) {
+            player_ids_to_remove.push(player_id);
         }
     }
 
@@ -444,13 +501,25 @@ fn shift_pieces(active_players : &mut ActivePlayersType,
     for player_id in player_ids_to_remove {
         move_to_inactive(player_id, active_players, inactive_players);
     }
+
+    //
+    if spawn_ready {
+        // actives a single piece
+        activate_piece(active_players, inactive_players, block_queue, block_index, shift_period);
+
+        // make shift period a bit shorter so that every cycle blocks fall down faster
+        recalc_shift_period(shift_period);
+
+        *last_spawn_time = current_time;
+    }
 }
 
 // activates exactly one piece !
 fn activate_piece(active_players : &mut ActivePlayersType,
                   inactive_players : &mut InactivePlayersType,
                   block_queue : &mut BlockQueueType,
-                  block_index : &mut usize) {
+                  block_index : &mut usize,
+                  shift_period : &mut f32) {
 
     // if we have more pieces in play and there are inactive pieces in the queue
     if MAX_NUM_ACTIVE - active_players.len() > 0 && inactive_players.len() > 0 {
@@ -472,11 +541,27 @@ fn activate_piece(active_players : &mut ActivePlayersType,
             player.pivot.y = PIECE_START_Y_RIGHT;
         }
 
+        // we lose a bit of precision on shift_period
+        player.next_shift_time = Some(millis_since_epoch() + (*shift_period as u128));
+
+        // piece are NOT fast dropping by default
+        player.fast_drop = false;
+
         // make sure that we didn't insert a duplicate into the set
         match active_players.insert(player.player_id, player) {
             Some(_) => { panic!("Already a player with id {} in active_players set.", player.player_id); },
             None => {},
         }
+    }
+}
+
+fn recalc_shift_period(shift_period : &mut f32) {
+    // Recalculate the shift period so it continually drops until it hits
+    // MIN_SHIFT_PERIOD.
+    if *shift_period - SHIFT_PERIOD_DELTA > MIN_SHIFT_PERIOD {
+        *shift_period -= SHIFT_PERIOD_DELTA;
+    } else {
+        *shift_period = MIN_SHIFT_PERIOD;
     }
 }
 
@@ -493,7 +578,7 @@ fn game_frame<'a>(broadcaster: Sender,
                   thread_score : Arc<Mutex<u32>>) {
 
     // the time when we last shifted the pieces down
-    let mut last_shift_time : u128 = 0;
+    let mut last_spawn_time : u128 = 0;
 
     // the ms between piece shifts
     let mut shift_period : f32 = START_SHIFT_PERIOD as f32;
@@ -508,25 +593,14 @@ fn game_frame<'a>(broadcaster: Sender,
         let mut fallen_blocks = thread_fallen_blocks.lock().unwrap();
         let mut score = thread_score.lock().unwrap();
 
-        // drop the pieces 1 square if they need to be dropped
-        let current_time = millis_since_epoch();
-        if (current_time - last_shift_time) as f32 > shift_period {
-
-            // check to make sure shift works
-            shift_pieces(&mut active_players, &mut inactive_players, &mut fallen_blocks);
-
-            // actives a single piece
-            activate_piece(&mut active_players, &mut inactive_players, &mut block_queue, &mut block_index);
-            last_shift_time = current_time;
-
-            // Recalculate the shift period so it continually drops until it hits
-            // MIN_SHIFT_PERIOD.
-            if shift_period - SHIFT_PERIOD_DELTA > MIN_SHIFT_PERIOD {
-                shift_period -= SHIFT_PERIOD_DELTA;
-            } else {
-                shift_period = MIN_SHIFT_PERIOD;
-            }
-        }
+        // check to make sure shift works
+        shift_pieces(&mut active_players,
+                     &mut inactive_players,
+                     &mut fallen_blocks,
+                     &mut block_queue,
+                     &mut block_index,
+                     &mut last_spawn_time,
+                     &mut shift_period);
 
         // Clear all completed fallen lines
         clear_lines(&mut fallen_blocks, &mut score);

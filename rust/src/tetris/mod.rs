@@ -4,7 +4,7 @@ use std::convert::TryInto;
 
 use crate::piece_state::{PieceState, Pivot};
 use crate::input::{KeyState};
-use crate::{ActivePlayersType, FallenBlocksType};
+use crate::{ActivePlayersType, FallenBlocksType, FAST_DROP_SHIFT_MS, millis_since_epoch};
 
 // TODO: Cleaner representation of pieces for calculations
 // consider classes
@@ -83,7 +83,12 @@ fn apply_input(player_input : &KeyState,
         }
     }
     new_state.player_name = name;
-    
+
+    if player_input.fast_drop {
+        new_state.fast_drop = true;
+        new_state.next_shift_time = Some(millis_since_epoch() + FAST_DROP_SHIFT_MS);
+    }
+
     // Move left
     if player_input.left {
         new_state.pivot.x -= 1;
@@ -234,6 +239,33 @@ pub fn fallen_blocks_collision(piece : &PieceState, fallen_blocks : &FallenBlock
     return false;
 }
 
+pub fn player_collision(piece : &PieceState, active_players : &ActivePlayersType) -> bool {
+    let this_shape = get_shape(piece.shape);
+    let width = if this_shape.len() == 9 {3} else {4};
+    let this_origin = piece.pivot;
+
+    // Check if collides with other players
+    for (other_piece_id, other_piece) in active_players {
+        if piece.player_id != *other_piece_id {
+            let other_origin = other_piece.pivot;
+            let other_shape = get_shape(other_piece.shape);
+            let x_offset = this_origin.x - other_origin.x;
+            let y_offset = this_origin.y - other_origin.y;
+            for x in 0..width {
+                for y in 0..width {
+                    if read_block(this_shape, x, y, piece.rotation) &&
+                            read_block(other_shape, x + x_offset,
+                            y + y_offset, other_piece.rotation) {
+                        return true;
+                    }
+                }
+            }
+        }
+    }
+    // TODO: add wallkicks
+    return false;
+}
+
 // Clears any lines necessary, modifying fallen_blocks as appropriate
 pub fn clear_lines(fallen_blocks : &mut FallenBlocksType, score : &mut u32) {
     let mut offset = 0;
@@ -308,29 +340,11 @@ fn collision(piece : &PieceState,
         return true;
     }
 
-    let this_shape = get_shape(piece.shape);
-    let width = if this_shape.len() == 9 {3} else {4};
-    let this_origin = piece.pivot;
-
-    // Check if collides with other players
-    for (other_piece_id, other_piece) in active_players {
-        if piece.player_id != *other_piece_id {
-            let other_origin = other_piece.pivot;
-            let other_shape = get_shape(other_piece.shape);
-            let x_offset = this_origin.x - other_origin.x;
-            let y_offset = this_origin.y - other_origin.y;
-            for x in 0..width {
-                for y in 0..width {
-                    if read_block(this_shape, x, y, piece.rotation) &&
-                            read_block(other_shape, x + x_offset,
-                            y + y_offset, other_piece.rotation) {
-                        return true;
-                    }
-                }
-            }
-        }
+    // if we hit another player
+    if player_collision(piece, active_players) {
+        return true;
     }
-    // TODO: add wallkicks
+
     return false;
 }
 
