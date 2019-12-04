@@ -591,6 +591,7 @@ fn game_frame<'a>(broadcaster: Sender,
         let mut active_players = thread_active_players.lock().unwrap();
         let mut inactive_players = thread_inactive_players.lock().unwrap();
         let mut fallen_blocks = thread_fallen_blocks.lock().unwrap();
+        let mut score = thread_score.lock().unwrap();
 
         // check to make sure shift works
         shift_pieces(&mut active_players,
