@@ -477,7 +477,7 @@ fn shift_pieces(active_players : &mut ActivePlayersType,
 
     let mut player_ids_to_drop : Vec<usize> = vec![];
 
-    for mut player in active_players.values() {
+    for player in active_players.values() {
         match player.next_shift_time {
             Some(next_shift_time) => {
                 if current_time > next_shift_time {
