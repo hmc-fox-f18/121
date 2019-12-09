@@ -35,13 +35,14 @@ const MAX_NUM_ACTIVE : usize = 2;
 /// CONSTANTS RELATED TO THE TIMING OF PIECE SHIFTING ///
 
 // how long it takes between when pieces move down 1 square
-const START_SHIFT_PERIOD : f32 = 500.0;
+const MAX_SHIFT_PERIOD : f32 = 400.0;
 
 // how long it takes between when pieces move down 1 square
 const MIN_SHIFT_PERIOD : f32 = 100.0;
 
-// at this rate, it takes 800 seconds to reach MAX_SHIFT_PERIOD
-const SHIFT_PERIOD_DELTA : f32 = 0.05;
+// the score at which block drop at MIN_SHIFT_PERIOD and blocks can't drop any faster
+const SPEED_CAPPED_SCORE : f32 = 10000.0; // 100 lines cleared
+
 
 // how long piece may move when touching bottom of the board before it freezes
 const BOTTOM_TOUCH_MS : u128 = 500;
@@ -468,12 +469,13 @@ fn shift_pieces(active_players : &mut ActivePlayersType,
                 block_queue : &mut BlockQueueType,
                 block_index : &mut usize,
                 last_spawn_time : &mut u128,
-                shift_period : &mut f32) {
+                score : &u32) {
 
+    // calculate shift period from score
+    let shift_period = get_shift_period(score);
 
     let current_time = millis_since_epoch();
-    let spawn_ready = (current_time - *last_spawn_time) as f32 > *shift_period;
-
+    let spawn_ready = (current_time - *last_spawn_time) as f32 > shift_period;
 
     let mut player_ids_to_drop : Vec<usize> = vec![];
 
@@ -492,7 +494,7 @@ fn shift_pieces(active_players : &mut ActivePlayersType,
 
     // actually remove players from the board
     for player_id in player_ids_to_drop {
-        if drop_piece(player_id, fallen_blocks, active_players, shift_period) {
+        if drop_piece(player_id, fallen_blocks, active_players, &shift_period) {
             player_ids_to_remove.push(player_id);
         }
     }
@@ -502,13 +504,9 @@ fn shift_pieces(active_players : &mut ActivePlayersType,
         move_to_inactive(player_id, active_players, inactive_players);
     }
 
-    //
     if spawn_ready {
         // actives a single piece
-        activate_piece(active_players, inactive_players, block_queue, block_index, shift_period);
-
-        // make shift period a bit shorter so that every cycle blocks fall down faster
-        recalc_shift_period(shift_period);
+        activate_piece(active_players, inactive_players, block_queue, block_index, &shift_period);
 
         *last_spawn_time = current_time;
     }
@@ -519,7 +517,7 @@ fn activate_piece(active_players : &mut ActivePlayersType,
                   inactive_players : &mut InactivePlayersType,
                   block_queue : &mut BlockQueueType,
                   block_index : &mut usize,
-                  shift_period : &mut f32) {
+                  shift_period : & f32) {
 
     // if we have more pieces in play and there are inactive pieces in the queue
     if MAX_NUM_ACTIVE - active_players.len() > 0 && inactive_players.len() > 0 {
@@ -555,14 +553,14 @@ fn activate_piece(active_players : &mut ActivePlayersType,
     }
 }
 
-fn recalc_shift_period(shift_period : &mut f32) {
-    // Recalculate the shift period so it continually drops until it hits
-    // MIN_SHIFT_PERIOD.
-    if *shift_period - SHIFT_PERIOD_DELTA > MIN_SHIFT_PERIOD {
-        *shift_period -= SHIFT_PERIOD_DELTA;
-    } else {
-        *shift_period = MIN_SHIFT_PERIOD;
+fn get_shift_period(score : &u32) -> f32 {
+    // fraction from 0 to 1 indicates where we are between 0 and 100 lines cleared
+    let mut frac = *score as f32 / SPEED_CAPPED_SCORE;
+    if frac > 1.0 {
+        frac = 1.0;
     }
+
+    return MAX_SHIFT_PERIOD - ((MAX_SHIFT_PERIOD - MIN_SHIFT_PERIOD) * frac);
 }
 
 /**
@@ -580,10 +578,6 @@ fn game_frame<'a>(broadcaster: Sender,
     // the time when we last shifted the pieces down
     let mut last_spawn_time : u128 = 0;
 
-    // the ms between piece shifts
-    let mut shift_period : f32 = START_SHIFT_PERIOD as f32;
-
-    //
     let mut block_queue = [[0, 1, 2, 3, 4, 5, 6, 0, 1, 2, 3, 4, 5, 6] ; NUM_BAGS];
     let mut block_index = 0;
 
@@ -600,7 +594,7 @@ fn game_frame<'a>(broadcaster: Sender,
                      &mut block_queue,
                      &mut block_index,
                      &mut last_spawn_time,
-                     &mut shift_period);
+                     & score);
 
         // Clear all completed fallen lines
         clear_lines(&mut fallen_blocks, &mut score);
