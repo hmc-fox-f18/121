@@ -49,7 +49,6 @@ const BOTTOM_TOUCH_MS : u128 = 500;
 
 const FAST_DROP_SHIFT_MS : u128 = 25;
 
-
 const PIECE_START_X_LEFT : i8 = 5;
 const PIECE_START_Y_LEFT : i8 = 0;
 const PIECE_START_X_RIGHT : i8 = 12;
@@ -119,6 +118,7 @@ impl Handler for Client<'_> {
             player_name: ['g', 'u', 'e', 's', 't', ' ', ' ', ' '],
             next_shift_time: None,
             fast_drop: false,
+            hard_drop: false,
         };
 
         // Insert player into back of inactive queue
@@ -432,28 +432,33 @@ fn drop_piece(player_id : usize, fallen_blocks : &mut FallenBlocksType, active_p
     // if there is another piece blocking the way, don't shift down yet
     // and stop fast drop
     if player_collision(&player_copy, active_players) {
-        active_players.get_mut(&player_id).unwrap().fast_drop = false;
+        let player = active_players.get_mut(&player_id).unwrap();
+        (*player).fast_drop = false;
+        (*player).hard_drop = false;
         return false;
     }
 
-    // if we've reache this point, the piece has not about to fall off of the screen
+    // if we've reached this point, the piece has not touching the edge of the screen
     // and there is no other player in the way
     let player : &mut PieceState = active_players.get_mut(&player_id).unwrap();
     (*player).pivot.y += 1; // move the piece down by 1
-
-    // if we are doing fast drop, there is no extra time added when we're about to
-    // hit the bottom
-    if (*player).fast_drop {
-        (*player).next_shift_time = Some(millis_since_epoch() + FAST_DROP_SHIFT_MS);
-        return false;
-    }
+    player_copy.pivot.y += 1;
 
     // if piece is about to freeze, setup next_shift_time so that we can
     // allow the player longer to move around when their piece is almost about to collide
-    player_copy.pivot.y += 1;
     if fallen_blocks_collision(&player_copy, fallen_blocks) {
+        (*player).fast_drop = false; // cancel fast drop when we hit the bottom
+        (*player).hard_drop = false;
         (*player).next_shift_time = Some(millis_since_epoch() + BOTTOM_TOUCH_MS);
-        println!("Player is about to collide with ground!");
+    }
+    // if we are doing fast drop, there is no extra time added when we're about to
+    // hit the bottom
+    else if (*player).fast_drop {
+        (*player).next_shift_time = Some(millis_since_epoch() + FAST_DROP_SHIFT_MS);
+        return false;
+    }
+    else if (*player).hard_drop {
+        return drop_piece(player_id, fallen_blocks, active_players, shift_period);
     }
     // if the player is not about to be off the screen, just do regular dropping
     else {
@@ -475,7 +480,9 @@ fn shift_pieces(active_players : &mut ActivePlayersType,
     let shift_period = get_shift_period(score);
 
     let current_time = millis_since_epoch();
-    let spawn_ready = (current_time - *last_spawn_time) as f32 > shift_period;
+
+    // convert to i128 before subtracting so that negative result doesn't cause panic
+    let spawn_ready = (current_time as i128 - *last_spawn_time as i128) as f32 > shift_period;
 
     let mut player_ids_to_drop : Vec<usize> = vec![];
 
@@ -544,6 +551,7 @@ fn activate_piece(active_players : &mut ActivePlayersType,
 
         // piece are NOT fast dropping by default
         player.fast_drop = false;
+        player.hard_drop = false;
 
         // make sure that we didn't insert a duplicate into the set
         match active_players.insert(player.player_id, player) {
@@ -560,7 +568,8 @@ fn get_shift_period(score : &u32) -> f32 {
         frac = 1.0;
     }
 
-    return MAX_SHIFT_PERIOD - ((MAX_SHIFT_PERIOD - MIN_SHIFT_PERIOD) * frac);
+    let shift_period = MAX_SHIFT_PERIOD - ((MAX_SHIFT_PERIOD - MIN_SHIFT_PERIOD) * frac);
+    return shift_period;
 }
 
 /**
