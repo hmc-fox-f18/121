@@ -19,6 +19,18 @@ table {
     color: #FFFFFF;
 }
 
-.button-large:hover {
+.button-extra-large {
+    border: 0;
+    background: none;
+    box-shadow: none;
+    border-radius: 0px;
+    width: 150px;
+    height: 75px;
+    background-color: #C83770;
+    font-size: 24px;
+    color: #FFFFFF;
+}
+
+.button-large:hover, .button-extra-large:hover {
     background-color: #E85790;
 }
