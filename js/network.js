@@ -72,7 +72,7 @@ function sendInput(inputs) {
     convertedArr.right = inputs.ArrowRight || false;
     convertedArr.counter_rot = inputs.ArrowUp || false;
     convertedArr.rot = inputs.z || false;
-    convertedArr.hard_drop = false;
+    convertedArr.hard_drop = inputs[' '] || false;
     convertedArr.fast_drop = inputs.ArrowDown || false;
     convertedArr.player_id = my_player_id;
     convertedArr.player_name = document.getElementById("name-field").value || "Guest";

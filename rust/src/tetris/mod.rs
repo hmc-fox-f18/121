@@ -89,6 +89,11 @@ fn apply_input(player_input : &KeyState,
         new_state.next_shift_time = Some(millis_since_epoch() + FAST_DROP_SHIFT_MS);
     }
 
+    if player_input.hard_drop {
+        new_state.hard_drop = true;
+        new_state.next_shift_time = Some(millis_since_epoch()); // so we will shift immediately!
+    }
+
     // Move left
     if player_input.left {
         new_state.pivot.x -= 1;

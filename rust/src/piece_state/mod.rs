@@ -20,6 +20,9 @@ pub struct PieceState {
 
     #[serde(skip)] // don't serialize this field
     pub fast_drop : bool,
+
+    #[serde(skip)] // don't serialize this field
+    pub hard_drop : bool,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq)]
