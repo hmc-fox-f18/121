@@ -27,6 +27,44 @@
   text-align: center;
 }
 
+#splash .splash-controls {
+    padding-top: 20px;
+}
+
+#play {
+    margin-right: 20px;
+}
+
+.splash-blocks {
+    display: flex;
+    flex-wrap: nowrap;
+    justify-content: center;
+}
+
 #splash table {
     display: inline;
 }
+
+/* NAME TEXTBOX STYLING */
+
+/* .textbox-wrapper > span {
+    display: block;
+    overflow: hidden;
+} */
+
+#name-textbox {
+    width: 220px;
+    font-size: 1em;
+}
+
+/* #name-text {
+    color: lightgrey;
+} */
+
+#name-entry {
+    padding-top: 20px;
+}
+
+/* .textbox-wrapper {
+    padding: 0px !important;
+} */

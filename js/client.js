@@ -14,7 +14,9 @@ const strokeStyle = "white";
 let BOARD_WIDTH = 20;
 let BOARD_HEIGHT = 20;
 
-let GAME_START_DELAY = 1000;
+// let GAME_START_DELAY = 1000;
+
+var name = 'Guest';
 
 var canvasWidth;
 var canvasHeight;
@@ -36,18 +38,25 @@ var game_state = new GameState([], [], [], [], 0);
 // Actual Code
 
 $(document).ready(() => {
-    $("#splash .content").append(IBLOCK_HTML);
-    $("#splash .content").append(JBLOCK_HTML);
-    $("#splash .content").append(LBLOCK_HTML);
-    $("#splash .content").append(OBLOCK_HTML);
-    $("#splash .content").append(SBLOCK_HTML);
-    $("#splash .content").append(TBLOCK_HTML);
-    $("#splash .content").append(ZBLOCK_HTML);
+    $("#splash .splash-blocks").append(`<div>${IBLOCK_HTML}</div>`);
+    $("#splash .splash-blocks").append(`<div>${JBLOCK_HTML}</div>`);
+    $("#splash .splash-blocks").append(`<div>${LBLOCK_HTML}</div>`);
+    $("#splash .splash-blocks").append(`<div>${OBLOCK_HTML}</div>`);
+    $("#splash .splash-blocks").append(`<div>${SBLOCK_HTML}</div>`);
+    $("#splash .splash-blocks").append(`<div>${TBLOCK_HTML}</div>`);
+    $("#splash .splash-blocks").append(`<div>${ZBLOCK_HTML}</div>`);
 });
 
 /**
  *  Initializes the client state and all game logic variables
  */
+function play() {
+    $("#splash").fadeOut(200);
+    name = $("#name-textbox").val() || 'Guest';
+
+    init();
+}
+
 function init() {
     //TODO: Receive board specifications from server
 
@@ -66,8 +75,6 @@ function init() {
     initKeypressHandler();
 
     setTimeout(() => {
-        $("#splash").fadeOut(200);
-
         //Initialize network and rendering components
         //TODO: delegate to relevant components
         initSocket(() => {
@@ -75,7 +82,7 @@ function init() {
             clearBoard();
             window.requestAnimationFrame(handleFrame);
         });
-    }, GAME_START_DELAY);
+    });
 }
 
 /**

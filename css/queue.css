@@ -51,22 +51,6 @@ td {
   margin-top: 10px;
 }
 
-/* NAME TEXTBOX STYLING */
-
-.textbox-wrapper > span {
-    display: block;
-    overflow: hidden;
-}
-
-.textbox-wrapper > span > input {
-    width: 100%;
-    font-size: 1em;
-}
-
-.textbox-wrapper {
-    padding: 0px !important;
-}
-
 /* TETRIS BLOCK STYLING */
 
 /* set the styling for the different blocks */

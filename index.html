@@ -26,8 +26,7 @@
     <!-- <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css" integrity="sha384-BVYiiSIFeK1dGmJRAkycuHAHRg32OmUcww7on3RYdg4Va+PmSTsz/K68vbdEjh4u" crossorigin="anonymous"> -->
 </head>
 
-<body onload="init();">
-
+<body>
     <div class='flex-container'>
 
         <canvas id="board" width="400" height="400"></canvas>
@@ -55,10 +54,6 @@
                   <div class='shape'></div>
                 </div>
               </div>
-
-              <div class='textbox-wrapper'>
-                  <span><input class='fill-width' type="text" name="name" id='name-field' placeholder="Name" maxlength="8"></span>
-              </div>
         </div>
     </div>
 
@@ -66,7 +61,7 @@
     <div id="restart-modal" class="modal">
         <div class="modal-content">
             <h1>Game Over</h1>
-            <button class="button-large" onclick="restart_game()" type="button">Play Again?</button>
+            <button class="button-large" onclick="restart_game()" type="button">Main Menu</button>
         </div>
     </div>
 
@@ -74,13 +69,27 @@
         <div class="modal-content">
             <h1>Connection Lost</h1>
             <p id="error-message"></p>
-            <button class="button-large" onclick="restart_game()" type="button">Play Again?</button>
+            <button class="button-large" onclick="restart_game()" type="button">Main Menu</button>
         </div>
     </div>
 
     <div id="splash">
         <div class="content">
             <h1>Multiplayer Tetris</h1>
+
+
+            <div class='splash-controls'>
+                <button id = "play" onclick="play()" class="button-large" type="button">Play</button>
+                <button id = "how-to-play" onclick="how_to_play()" class="button-large" type="button">How to Play</button>
+                <div id = "name-entry">
+                    <input id="name-textbox" type="text" name="name" id='name-field' placeholder="Name" maxlength="8">
+                    <!-- <span id="name-text">Introduce yourself: </span> -->
+                </div>
+            </div>
+
+        </div>
+
+        <div class='splash-blocks'>
         </div>
     </div>
 </body>
