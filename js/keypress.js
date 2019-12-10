@@ -1,10 +1,7 @@
 // The keys which -- when depressed -- should trigger repeated keypress events.
 // All other events will trigger a keypress event just when they are pressed
 // for the first time.
-const REPEATED_PRESS_EVENTS = ['ArrowLeft', 'ArrowRight', 'ArrowUp'];
-
-// How often in ms repeated keypress events are triggered.
-const REPEATED_PRESS_INTERVAL = 150;
+const REPEATED_PRESS_PERIOD = {'ArrowLeft': 100, 'ArrowRight': 100, 'ArrowUp': 200, 'z': 200};
 
 var keypress_timers = {};
 var keypresses = {};
@@ -29,11 +26,11 @@ function initKeypressHandler() {
 
             // trigger another keypress event if this key is setup for
             // repeated press event triggering
-            if (REPEATED_PRESS_EVENTS.includes(e.key)) {
+            if (e.key in REPEATED_PRESS_PERIOD) {
                 keypress_timers[e.key] = setInterval(() => {
                     console.log(`${e.key}: next press event`);
                     keypresses[e.key]=true;
-                }, REPEATED_PRESS_INTERVAL);
+                }, REPEATED_PRESS_PERIOD[e.key]);
             }
             else
             {
