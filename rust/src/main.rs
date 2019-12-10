@@ -475,7 +475,9 @@ fn shift_pieces(active_players : &mut ActivePlayersType,
     let shift_period = get_shift_period(score);
 
     let current_time = millis_since_epoch();
-    let spawn_ready = (current_time - *last_spawn_time) as f32 > shift_period;
+
+    // convert to i128 before subtracting so that negative result doesn't cause panic
+    let spawn_ready = (current_time as i128 - *last_spawn_time as i128) as f32 > shift_period;
 
     let mut player_ids_to_drop : Vec<usize> = vec![];
 
