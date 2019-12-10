@@ -117,34 +117,33 @@ function getMyPieceShape() {
 // draws the my-piece section which shows when my own
 // piece will be put into the game
 function drawMyPiece() {
-  let queue_position = getMyQueuePosition();
+  let display_position = getMyQueuePosition() + 1;
 
-  // if my piece is in the queue
-  if (queue_position != -1) {
-    $("#my-piece").show();
+    // if my piece is in the queue
+    switch (display_position) {
+      case 0:
+        $("#my-position div").html("You're playing!");
+        break;
+      case 1:
+          $("#my-position div").html("<strong>You're next up!</strong>");
+          break;
+      default:
+          let display_suffix = ((position) => {
+            switch (display_position % 10) {
+              case 1:
+                return "st";
+              case 2:
+                return "nd";
+              case 3:
+                return "rd";
+              default:
+                return "th";
+            }
+          })(display_position);
 
-    $("#my-piece .shape").html(getPieceHTML(getMyPieceShape()));
-
-    // add 1 to convert from zero-indexed to 1-indexed
-    let display_position = queue_position + 1;
-
-    let display_suffix = ((position) => {
-      switch (display_position % 10) {
-        case 1:
-          return "st";
-        case 2:
-          return "nd";
-        case 3:
-          return "rd";
-        default:
-          return "th";
-      }
-    })(display_position);
-
-    $("#my-piece .position").html(display_position.toString() + display_suffix);
-  } else {
-    $("#my-piece").hide();
-  }
+          $("#my-position div").html(`You're ${display_position.toString() + display_suffix} up`);
+          break;
+    }
 }
 
 // draws the block queue which shows what the next three

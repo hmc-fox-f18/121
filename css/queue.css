@@ -20,18 +20,18 @@ td {
 
 #block-queue {
   background-color: #C83770;
+  /* background-color: #EA5990; */
 }
 
 #block-queue > div {
   height: 50px;
 }
 
-#block-queue-heading {
-  background-color: #D40055;
+#block-queue > p {
   text-align: center;
 }
 
-#my-piece {
+#my-position {
   background-color: #D35FBC;
   text-align: center;
 }
