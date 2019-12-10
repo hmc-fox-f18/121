@@ -14,19 +14,61 @@
 #splash h1 {
     /* font-family: "Courier New", Courier, monospace; */
     font-size: 50px;
-    color: white;
+    color: black;
 }
 
 /* Modal Content/Box */
 #splash .content {
-  /* background-color: #FFFFFF; */
-  margin: 10% auto; /* 15% from the top and centered */
+  /* background-color: rgb(173, 216, 230); */
+  margin: auto; /* 15% from the top and centered */
+  margin-top: 30px;
   padding: 20px;
   /* border: 1px solid #888; */
-  width: 60%; /* Could be more or less, depending on screen size */
+  width: 40%; /* Could be more or less, depending on screen size */
   text-align: center;
 }
 
-#splash table {
+#splash .splash-controls {
+    padding-top: 20px;
+}
+
+#play {
+    margin-right: 20px;
+}
+
+#title {
+    display: flex;
+    flex-wrap: nowrap;
+    justify-content: center;
+
+    margin-top: 80px;
+}
+
+.tetris-block-large div {
+  width: 40px;
+  height: 40px;
+}
+
+.tetris-block-large {
+  margin: 10px;
+  border-spacing: 0px;
+}
+
+.tetris-block-large td {
+  padding: 0px;
+}
+
+/* #splash table {
     display: inline;
+} */
+
+/* NAME TEXTBOX STYLING */
+
+
+#name-textbox {
+    width: 225px;
+    font-size: 1em;
+    padding: 3px;
+    margin: 10px;
+    margin-top: 20px;
 }

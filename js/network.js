@@ -75,7 +75,7 @@ function sendInput(inputs) {
     convertedArr.hard_drop = inputs[' '] || false;
     convertedArr.fast_drop = inputs.ArrowDown || false;
     convertedArr.player_id = my_player_id;
-    convertedArr.player_name = document.getElementById("name-field").value || "Guest";
+    convertedArr.player_name = name;
     let message = JSON.stringify(convertedArr);
     socket.send(message);
 }
