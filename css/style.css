@@ -24,11 +24,12 @@ table {
     background: none;
     box-shadow: none;
     border-radius: 0px;
-    width: 150px;
-    height: 75px;
+    width: 120px;
+    height: 60px;
     background-color: #C83770;
     font-size: 24px;
     color: #FFFFFF;
+    font-size: 1.5em;
 }
 
 .button-large:hover, .button-extra-large:hover {
