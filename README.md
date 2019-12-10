@@ -2,20 +2,19 @@
 
 Play Tetris -- cooperatively with your friends! Play instantly on the web without any plug-ins.
 
-## How to Play
+## Game Controls
 
-`LeftArrow`: move left
-`RightArrow`: move right
-`UpArrow`: rotate clockwise
-`z`: rotate counter-clockwise
-`Space`: hard drop
+ - `LeftArrow`: move left
+ - `RightArrow`: move right
+ - `UpArrow`: rotate clockwise
+ - `z`: rotate counter-clockwise
+ - `Space`: hard drop
 
 ## Development
 
 Since it's a trademark infringement to distribute this, you have to run it yourself! Do that easily, by following the guide below.
 
 ### Requirements
-Requirements:
  - cargo 1.39.0-nightly
  - python3
 
