@@ -178,6 +178,7 @@ pub fn get_shape(shape_num : u8) -> &'static [bool] {
     }
 }
 
+#[derive(PartialEq)]
 pub enum CollisionType {
     Ceiling,
     Wall,
@@ -352,10 +353,7 @@ fn wallkick(mut new_state : &mut PieceState,
             clockwise : bool,
             active_players : &mut ActivePlayersType,
             fallen_blocks : &FallenBlocksType) -> PieceState {
-    // No Change, Test 1
-    if !collision(&mut new_state, active_players, fallen_blocks) {
-        return *new_state;
-    }
+
     let prev_rotation = if clockwise {
             (ROT_LIMIT + new_state.rotation - 1) % ROT_LIMIT
         }
@@ -363,27 +361,42 @@ fn wallkick(mut new_state : &mut PieceState,
             (new_state.rotation + 1) % ROT_LIMIT
         };
 
-    for i in 0..4 {
-        let index : usize = (2 * prev_rotation +
-                                (if clockwise {0} else {1})) as usize;
-        let x_test;
-        let y_test;
-        if new_state.shape < 5 {
-            x_test = X_KICKS[i][index];
-            y_test = Y_KICKS[i][index];
-        }
-        else {
-            x_test = I_BLOCK_X_KICKS[i][index];
-            y_test = I_BLOCK_Y_KICKS[i][index];
-        }
-        new_state.pivot.x += x_test;
-        new_state.pivot.y += y_test;
-        if !collision(&mut new_state, active_players, fallen_blocks) {
-            return *new_state;
-        }
-        new_state.pivot.x -= x_test;
-        new_state.pivot.y -= y_test;
+    // the state this piece was in before trying this rotation
+    let mut prev_state = new_state.clone();
+    prev_state.rotation = prev_rotation;
+
+    // if there is no collision, allow the rotation
+    if !collision(&mut new_state, active_players, fallen_blocks) {
+        return *new_state;
     }
-    // TODO: Prevent from re-checking collision afterwards
-    return *new_state;
+
+    // if there is a collision with the left or right wall, perform a wallkick
+    if screen_collision(new_state) == CollisionType::Wall {
+        for i in 0..4 {
+            let index : usize = (2 * prev_rotation +
+                                    (if clockwise {0} else {1})) as usize;
+            let x_test;
+            let y_test;
+            if new_state.shape < 5 {
+                x_test = X_KICKS[i][index];
+                y_test = Y_KICKS[i][index];
+            }
+            else {
+                x_test = I_BLOCK_X_KICKS[i][index];
+                y_test = I_BLOCK_Y_KICKS[i][index];
+            }
+            new_state.pivot.x += x_test;
+            new_state.pivot.y += y_test;
+            if !collision(&mut new_state, active_players, fallen_blocks) {
+                return *new_state;
+            }
+            new_state.pivot.x -= x_test;
+            new_state.pivot.y -= y_test;
+        }
+
+        return *new_state;
+    }
+
+    // if we can't rotate of perform a wallkick, return original state
+    return prev_state;
 }
