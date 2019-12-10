@@ -27,46 +27,41 @@
 </head>
 
 <body onload="init();">
-  <table>
-    <tr>
-      <!-- canvas that the game is played on -->
-      <td>
-        <!-- <div id="canvas-wrapper"> -->
-            <canvas id="board" width="400" height="400"></canvas>
-        <!-- </div> -->
-      </td>
 
-      <td>
+    <div class='flex-container'>
+
+        <canvas id="board" width="400" height="400"></canvas>
+
         <div id='queue'>
 
-        <!-- says when my piece will come up (eg. #1 or #21) -->
-        <div id='my-position'>
-           <div></div>
+            <!-- says when my piece will come up (eg. #1 or #21) -->
+            <div id='my-position'>
+               <div></div>
+            </div>
+
+              <!-- stores the next three blocks that will appear in game -->
+              <div id='block-queue'>
+                <p>Piece Queue</p>
+                <div>
+                  <div class='position'>1st</div>
+                  <div class='shape'></div>
+                </div>
+                <div>
+                  <div class='position'>2nd</div>
+                  <div class='shape'></div>
+                </div>
+                <div>
+                  <div class='position'>3rd</div>
+                  <div class='shape'></div>
+                </div>
+              </div>
+
+              <div class='textbox-wrapper'>
+                  <span><input class='fill-width' type="text" name="name" id='name-field' placeholder="Name" maxlength="8"></span>
+              </div>
         </div>
+    </div>
 
-          <!-- stores the next three blocks that will appear in game -->
-          <div id='block-queue'>
-            <p>Piece Queue</p>
-            <div>
-              <div class='position'>1st</div>
-              <div class='shape'></div>
-            </div>
-            <div>
-              <div class='position'>2nd</div>
-              <div class='shape'></div>
-
-            </div>
-            <div>
-              <div class='position'>3rd</div>
-              <div class='shape'></div>
-            </div>
-          </div>
-
-          <input type="text" name="name" id='name-field' placeholder="Name" maxlength="8">
-        </div>
-      </td>
-    </tr>
-  </table>
 
     <div id="restart-modal" class="modal">
         <div class="modal-content">

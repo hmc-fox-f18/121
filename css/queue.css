@@ -3,6 +3,12 @@
   margin-left: 10px;
 }
 
+.flex-container {
+  display: flex;
+  flex-flow: row wrap;
+  justify-content: center;
+}
+
 td {
   vertical-align: top;
 }
@@ -12,7 +18,8 @@ td {
   margin: 0px 0px 0px 0px;
 }
 
-/*  */
+/* STYLE FOR BLOCK QUEUE */
+
 #queue > div {
   margin-bottom: 10px;
   padding: 10px 10px 10px 10px;
@@ -20,7 +27,6 @@ td {
 
 #block-queue {
   background-color: #C83770;
-  /* background-color: #EA5990; */
 }
 
 #block-queue > div {
@@ -45,7 +51,23 @@ td {
   margin-top: 10px;
 }
 
+/* NAME TEXTBOX STYLING */
 
+.textbox-wrapper > span {
+    display: block;
+    overflow: hidden;
+}
+
+.textbox-wrapper > span > input {
+    width: 100%;
+    font-size: 1em;
+}
+
+.textbox-wrapper {
+    padding: 0px !important;
+}
+
+/* TETRIS BLOCK STYLING */
 
 /* set the styling for the different blocks */
 .tetris-block div {
