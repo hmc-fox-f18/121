@@ -1,3 +1,11 @@
+// The keys which -- when depressed -- should trigger repeated keypress events.
+// All other events will trigger a keypress event just when they are pressed
+// for the first time.
+const REPEATED_PRESS_EVENTS = ['ArrowLeft', 'ArrowRight', 'ArrowUp'];
+
+// How often in ms repeated keypress events are triggered.
+const REPEATED_PRESS_INTERVAL = 150;
+
 var keypress_timers = {};
 var keypresses = {};
 
@@ -19,11 +27,19 @@ function initKeypressHandler() {
 
             console.log(`${e.key}: first press event`);
 
-            // then trigger another each KEYPRESS_INTERVAL seconds
-            keypress_timers[e.key] = setInterval(() => {
-                console.log(`${e.key}: next press event`);
-                keypresses[e.key]=true;
-            }, KEYPRESS_INTERVAL);
+            // trigger another keypress event if this key is setup for
+            // repeated press event triggering
+            if (REPEATED_PRESS_EVENTS.includes(e.key)) {
+                keypress_timers[e.key] = setInterval(() => {
+                    console.log(`${e.key}: next press event`);
+                    keypresses[e.key]=true;
+                }, REPEATED_PRESS_INTERVAL);
+            }
+            else
+            {
+                // puts the key in keypress_timers so that no future events will be triggered
+                keypress_timers[e.key] = null;
+            }
         }
     });
 
@@ -31,8 +47,10 @@ function initKeypressHandler() {
         // this may be undefined if the key was pressed before the
         // program started
         if (e.key in keypress_timers) {
-            console.log(`${e.key}: stop press events`);
-            clearInterval(keypress_timers[e.key]);
+            if (keypress_timers[e.key] != null) {
+                console.log(`${e.key}: stop press events`);
+                clearInterval(keypress_timers[e.key]);
+            }
             delete keypress_timers[e.key];
         }
     });

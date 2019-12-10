@@ -59,6 +59,8 @@ function initSocket(connectionCallback) {
     };
 
     socket.onerror = function(error) {
+        socketOpen = false;
+
         $("#error-message").text(`Connection error: ${error.message}`);
         $("#disconnect-modal").show();
     };

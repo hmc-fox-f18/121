@@ -13,7 +13,6 @@ const strokeStyle = "white";
 //other components
 let BOARD_WIDTH = 20;
 let BOARD_HEIGHT = 20;
-let KEYPRESS_INTERVAL = 100; // ms
 
 let GAME_START_DELAY = 1000;
 
@@ -84,7 +83,6 @@ function init() {
  *  and rendering logic to draw the frame and send data to the server
  */
 function handleFrame() {
-  console.log(game_state)
     updatePosition();
     draw_frame();
 
@@ -110,7 +108,9 @@ function updatePosition() {
     // send update piece position to the server
     // getKeypresses gets whichever pieces have been pressed since the last
     // call of this function
-    sendInput(getKeypresses());
+    if (socketOpen) {
+        sendInput(getKeypresses());
+    }
 }
 
 function restart_game() {
